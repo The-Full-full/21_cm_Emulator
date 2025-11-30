@@ -1,0 +1,8 @@
+.venv/
+.venv1/
+__pycache__/
+.idea/
+*.pyc
+*.h5
+*.pk
+100b_tr_set_model/
