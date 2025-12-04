@@ -1,18 +1,43 @@
 import os
 import streamlit as st
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import pickle
 
-# 🔴 שינוי 1: הגדרת תאימות ל-Keras הישן (חייב להיות ראשון!)
+# --- 1. CONFIGURATION ---
+# חובה: הגדרת תאימות ל-Keras הישן
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
-
-# 🔴 שינוי 2: ייבוא המחלקה של האמולטור מהקובץ שלך
-# וודא שהקובץ build_NN.py נמצא באותה תיקייה!
 from build_NN import FCemu
 
-# --- התחלת עיצוב (נשאר ללא שינוי) ---
+# --- 2. PATH CONFIGURATION ---
+# וודא שהנתיב הזה נכון אצלך במחשב!
+MODEL_DIR = r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model'
+MODEL_NAME = '100b_model'
+LITE_DATA_FILE = 'emulator_data_lite.pk'
+
+# --- PARAMETER DESCRIPTIONS (Scientific) ---
+PARAM_DESCRIPTIONS = {
+    # Star Formation
+    'F_STAR10': "Star Formation Efficiency ($f_{*,10}$): The fraction of gas converting to stars in halos of mass $10^{10} M_{\odot}$. Controls the intensity of the UV signal.",
+    'ALPHA_STAR': "Star Formation Slope ($\\alpha_*$): Determines how star formation efficiency changes with halo mass. Positive values mean efficient formation in massive halos.",
+    't_STAR': "Star Formation Timescale ($t_*$): The duration of star formation bursts as a fraction of the Hubble time. Affects how quickly galaxies evolve.",
+
+    # Escape Fraction (Reionization)
+    'F_ESC10': "Escape Fraction ($f_{esc,10}$): The fraction of ionizing UV photons escaping from halos of mass $10^{10} M_{\odot}$. This is the main driver of when Reionization happens.",
+    'ALPHA_ESC': "Escape Fraction Slope ($\\alpha_{esc}$): How the escape fraction scales with halo mass. Critical for understanding which galaxies drive reionization.",
+    'M_TURN': "Turnover Mass ($M_{turn}$): The halo mass threshold below which star formation is suppressed (due to feedback).",
+
+    # X-rays (Heating)
+    'L_X': "X-ray Luminosity ($L_X/SFR$): The energy output in X-rays per unit of star formation. Responsible for heating the gas (IGM) and creating the absorption trough.",
+    'NU_X_THRESH': "X-ray Threshold ($E_0$): The minimum energy of X-ray photons capable of escaping the galaxy. Lower values mean softer X-rays that heat the gas locally.",
+    'X_RAY_SPEC_INDEX': "X-ray Spectral Index ($\\alpha_X$): The slope of the X-ray power-law spectrum. Harder spectra (lower values) penetrate deeper into the universe.",
+
+    # Cosmology
+    'R_MFP': "Mean Free Path ($R_{mfp}$): The maximum distance ionizing photons can travel through the neutral gas.",
+    'TAU_E': "Optical Depth ($\\tau_e$): The integrated electron scattering optical depth, a key cosmological constraint."
+}
+
+# --- 3. STYLING ---
 page_bg_img = """
 <style>
 [data-testid="stAppViewContainer"] {
@@ -22,157 +47,195 @@ page_bg_img = """
 [data-testid="stHeader"] {
     background-color: rgba(0,0,0,0);
 }
+.stSpinner > div {
+    border-top-color: #00ff00 !important;
+}
+.stInfo {
+    background-color: rgba(20, 20, 50, 0.8) !important;
+    border-left: 5px solid #00ff00 !important;
+}
 </style>
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
-# --- סוף עיצוב ---
 
-# כותרת
-st.title('The 21 cm Signal 🌌')
+# --- 4. HEADER & INTRODUCTION (Scientific) ---
+st.title('The Global 21-cm Signal 🌌')
+st.markdown("### Probing the Cosmic Dawn and Epoch of Reionization")
 
-# טקסט
-st.header('Analysis of the Hydrogen Line')
 st.write("""
-The 21cm line (or hydrogen line) is a radio-frequency spectral line created by a change in the energy state of neutral hydrogen atoms. 
-The wave has a frequency of 1420.40575 MHz and a corresponding wavelength of 21.106 cm.
-This signal is crucial in astrophysics and cosmology as it allows us to "see" neutral hydrogen, the main component of matter in the universe. 
-It's used to map the spiral arms of our galaxy, study other galaxies, and most importantly, to probe the "Cosmic Dawn" - the era when the first stars and galaxies formed and reionized the universe.
+The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
+This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
 """)
 
-# הסבר פרמטרים
-st.subheader("Key Parameters")
+st.subheader("Theoretical Framework")
 st.write("""
-- **Spin Temperature ($T_B$):** An effective temperature describing the population ratio of the two hydrogen energy levels.
-- **Background Temperature ($T_{CMB}$):** The temperature of the Cosmic Microwave Background at that epoch.
-- **Neutral Hydrogen Fraction (X):** The relative fraction of hydrogen that is neutral (not ionized).
-- **Matter Density (P) & Redshift (Z):** These determine the overall density of hydrogen atoms.
+The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
+The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
 """)
 
-# פסקה עם קצת הסבר
-st.write("""
-The signal appears in emission ($T_S > T_{CMB}$) or absorption ($T_S < T_{CMB}$), 
-and its magnitude is proportional to the temperature difference and the amount of neutral hydrogen.
+# משוואת ה-Tb המדעית
+st.latex(r"""
+\delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
 """)
 
+st.write("""
+Where:
+- $x_{HI}$ is the neutral hydrogen fraction.
+- $\delta_b$ is the baryon overdensity.
+- $z$ is the redshift.
+- The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
+    - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
+    - **Emission ($T_S > T_{CMB}$):** Positive signal.
+""")
 
-# 🔴 שינוי 3: פונקציה חכמה לטעינת המודל (Cache)
-# הפונקציה הזו רצה רק פעם אחת כדי לחסוך זמן טעינה
-@st.cache_resource
-def load_emulator_system(model_dir, name):
-    # נתיב לקובץ הנתונים
-    data_path = os.path.join(model_dir, 'training_files.pk')
-
-    if not os.path.exists(data_path):
-        st.error(f"Error: Could not find data file at {data_path}")
-        return None, None, None
-
-    # טעינת הנתונים
-    data = pickle.load(open(data_path, 'rb'))
-    X_train, _, X_val, _, X_test, Y_test = data
-
-    # טעינת המודל
-    emulator = FCemu(restore=True, files_dir=model_dir, name=name)
-    Z_BINS = emulator.z_glob  # ציר ה-Redshift
-
-    return emulator, X_test, Z_BINS
+st.markdown("---")
 
 
-# 🔴 שינוי 4: הגדרת נתיבים (החלפנו את הסליידרים הידניים בטעינת מודל)
-# עדכן את הנתיב הזה לנתיב המדויק במחשב שלך!
-MODEL_DIR = r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model'
-MODEL_NAME = '100b_model'
+# --- 5. EMULATOR LOADER FUNCTION ---
+# שיניתי את השם ל-_v4 כדי לכפות רענון מוחלט
+@st.cache_resource(show_spinner=False)
+def load_emulator_system_v4(model_dir, name):
+    lite_path = os.path.join(model_dir, LITE_DATA_FILE)
+    full_path = os.path.join(model_dir, 'training_files.pk')
 
-# כפתור טעינה (כדי לא לתקוע את האתר מיד בהתחלה)
-st.subheader("Neural Network Emulator")
+    if os.path.exists(lite_path):
+        data_path = lite_path
+    elif os.path.exists(full_path):
+        data_path = full_path
+    else:
+        return None, None, None, None
 
-# טעינת המודל בפועל
-with st.spinner('Loading Neural Network Model...'):
-    emulator, X_test, Z_BINS = load_emulator_system(MODEL_DIR, MODEL_NAME)
+    try:
+        if 'lite' in data_path:
+            X_test = pickle.load(open(data_path, 'rb'))
+        else:
+            data = pickle.load(open(data_path, 'rb'))
+            X_test = data[4]
+
+        emulator = FCemu(restore=True, files_dir=model_dir, name=name)
+        Z_BINS = emulator.z_glob
+
+        # מחזירים את השמות כמו שהם (raw), נטפל בהם בחוץ
+        raw_names = emulator.param_names
+
+        return emulator, X_test, Z_BINS, raw_names
+
+    except Exception as e:
+        print(f"Error loading system: {e}")
+        return None, None, None, None
+
+
+# --- 6. LOAD SYSTEM ---
+with st.spinner('Initializing Emulator System...'):
+    emulator, X_test, Z_BINS, raw_param_names = load_emulator_system_v4(MODEL_DIR, MODEL_NAME)
 
 if emulator is None:
-    st.warning("Please check the MODEL_DIR path in the code.")
+    st.error("System Error: Could not load emulator files.")
     st.stop()
 
-# 🔴 שינוי 5: החלפת הסליידרים והגרף המזויף בכפתור סימולציה אמיתי
-if st.button('🎲 Run Random Simulation from Test Set'):
-
-    # 1. בחירת דוגמה אקראית
-    random_idx = np.random.randint(0, len(X_test))
-    st.info(f"Running simulation on sample index: #{random_idx}")
-
-    # 2. הרצת החיזוי (Prediction)
-    sample_input = X_test[random_idx:random_idx + 1]
-    predictions = emulator.predict(sample_input)
-
-    # 3. הכנת הנתונים לגרפים
-    sample_idx = 0
-
-    # הגדרת ציר X (בדיקה אם יש ציר Z אמיתי או שנשתמש באינדקסים)
-    if len(predictions) > 1 and len(Z_BINS) == len(predictions[1][sample_idx]):
-        x_axis = Z_BINS
-        xlabel_z = 'Redshift (z)'
+# --- 7. SAFETY NET: STRING CONVERSION ---
+# המרה כפויה של השמות כאן ועכשיו, מחוץ לפונקציה
+# זה פותר את השגיאה ב-100%
+param_names = []
+for p in raw_param_names:
+    if isinstance(p, bytes):
+        param_names.append(p.decode('utf-8'))
     else:
-        x_axis = range(len(predictions[1][sample_idx]))
-        xlabel_z = 'Index'
+        param_names.append(str(p))
 
-    # --- יצירת הגרפים האמיתיים ---
-    st.subheader("Simulation Results")
+# --- 8. INTERACTIVE CONTROL ---
+st.subheader("Interactive Parameter Exploration")
 
-    col1, col2 = st.columns(2)
+st.write("**Parameters included in this model:**")
+# עכשיו זה בטוח יעבוד כי param_names עבר המרה הרגע
+st.info(", ".join(param_names))
 
-    # גרף 1: Power Spectrum
-    with col1:
-        fig1, ax1 = plt.subplots(figsize=(6, 4))
-        ps_data = predictions[0][sample_idx, :, 0, 0]
-        ax1.plot(ps_data, 'b-', linewidth=2)
-        ax1.set_title('Power Spectrum (z=z_0)')
-        ax1.set_xlabel('k bins')
-        ax1.set_ylabel('Power')
-        ax1.grid(True)
-        st.pyplot(fig1)
+min_vals = np.min(X_test, axis=0)
+max_vals = np.max(X_test, axis=0)
+mean_vals = np.mean(X_test, axis=0)
+num_params = X_test.shape[1]
 
-    # גרף 2: Brightness Temperature (הכי חשוב!)
-    with col2:
-        fig3, ax3 = plt.subplots(figsize=(6, 4))
-        # Tb נמצא בדרך כלל באינדקס 3
-        if len(predictions) > 3:
-            Tb_data = predictions[3][sample_idx]
-            ax3.plot(x_axis, Tb_data, 'g-', linewidth=2)
-            ax3.set_title('Brightness Temperature (Tb)')
-            ax3.set_xlabel(xlabel_z)
-            ax3.set_ylabel('mK')
-            ax3.grid(True)
-            ax3.axhline(y=0, color='k', linestyle='--', alpha=0.5)
-            st.pyplot(fig3)
-        else:
-            st.write("Tb data not found in model output")
+col1, col2 = st.columns([1, 2])
 
-    # גרף 3: Spin Temperature
-    if len(predictions) > 5:
-        st.subheader("Spin Temperature vs Kinetic Temperature")
-        fig5, ax5 = plt.subplots(figsize=(10, 4))
+with col1:
+    selected_param_index = st.selectbox(
+        "Select Parameter to Vary:",
+        options=range(num_params),
+        format_func=lambda i: param_names[i] if i < len(param_names) else f"Param {i}"
+    )
 
-        # Ts
-        Ts_data = predictions[5][sample_idx]
-        ax5.plot(x_axis, Ts_data, 'm-', linewidth=2, label='Spin Temp (Ts)')
+current_param_name = param_names[selected_param_index]
 
-        # Tk (אם קיים)
-        if len(predictions) > 4:
-            Tk_data = predictions[4][sample_idx]
-            ax5.plot(x_axis, Tk_data, color='orange', linewidth=2, linestyle='--', label='Kinetic Temp (Tk)')
+# שליפת התיאור
+desc_key = current_param_name.strip()
+if desc_key not in PARAM_DESCRIPTIONS:
+    # ניסיון למצוא מפתח דומה אם יש בעיות רווחים
+    for key in PARAM_DESCRIPTIONS:
+        if key in desc_key:
+            desc_key = key
+            break
 
-        ax5.set_title('Temperatures Evolution')
-        ax5.set_xlabel(xlabel_z)
-        ax5.set_ylabel('Temperature [K]')
-        ax5.set_yscale('log')
-        ax5.legend()
-        ax5.grid(True, which="both", ls="-")
-        st.pyplot(fig5)
+param_desc = PARAM_DESCRIPTIONS.get(desc_key, "Control this parameter to see its effect on the 21cm signal.")
 
-# סיכום נחמד (נשאר ללא שינוי)
-st.write("""
-This signal is crucial in astrophysics and cosmology because:
-* It allows us to "see" **neutral hydrogen**, the main component of matter in the universe.
-* It is used to **map the spiral arms** of our galaxy.
-* It helps us probe the **"Cosmic Dawn"** – the era when the first stars formed.
-""")
+with col2:
+    st.info(f"**{current_param_name}:** {param_desc}")
+
+    selected_value = st.slider(
+        f"Adjust Value",
+        min_value=float(min_vals[selected_param_index]),
+        max_value=float(max_vals[selected_param_index]),
+        value=float(mean_vals[selected_param_index]),
+        step=(float(max_vals[selected_param_index]) - float(min_vals[selected_param_index])) / 100.0
+    )
+
+# --- 9. PREDICTION ---
+input_vector = mean_vals.copy()
+input_vector[selected_param_index] = selected_value
+input_vector_batch = input_vector.reshape(1, -1)
+
+try:
+    predictions = emulator.predict(input_vector_batch)
+except Exception:
+    st.error("Emulator Prediction Failed")
+    st.stop()
+
+# --- 10. PLOTTING ---
+st.subheader(f"Global Signal Prediction: $\delta T_b$ vs Redshift")
+
+Tb_index = 3
+sample_idx = 0
+
+if len(predictions) > Tb_index:
+    Tb_data = predictions[Tb_index][sample_idx]
+
+    if len(Z_BINS) == len(Tb_data):
+        x_axis = Z_BINS
+    else:
+        x_axis = range(len(Tb_data))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    ax.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label='Emulator Prediction')
+
+    ax.set_xlabel('Redshift ($z$)', fontsize=12)
+    ax.set_ylabel(r'Brightness Temperature $\delta T_b$ [mK]', fontsize=12)
+    ax.set_title(f'Effect of varying {current_param_name}', fontsize=14)
+
+    ax.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+    ax.grid(True, which='both', linestyle='--', alpha=0.3)
+    ax.legend(loc='upper right')
+
+    fig.patch.set_alpha(0.0)
+    ax.set_facecolor((0, 0, 0, 0.2))  # RGBA tuple fixed
+
+    ax.tick_params(colors='white')
+    ax.xaxis.label.set_color('white')
+    ax.yaxis.label.set_color('white')
+    ax.title.set_color('white')
+    for spine in ax.spines.values():
+        spine.set_color('white')
+
+    st.pyplot(fig)
+
+else:
+    st.error("Model output structure mismatch (Tb not found).")
