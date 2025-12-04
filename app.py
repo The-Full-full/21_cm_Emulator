@@ -1,3 +1,23 @@
+"""
+Application Name: 21cm Global Signal Emulator
+---------------------------------------------
+Description:
+    This is an interactive Streamlit web application designed to emulate the Global 21-cm Signal
+    from the Cosmic Dawn and Epoch of Reionization.
+
+    It utilizes a pre-trained Deep Neural Network (FCemu) to predict the differential brightness
+    temperature (Tb) as a function of redshift (z), based on various astrophysical and cosmological
+    parameters.
+
+Key Features:
+    - Interactive Sidebar: Allows users to vary specific physical parameters (e.g., f_star, L_X).
+    - Real-time Inference: Runs the neural network prediction instantly upon parameter change.
+    - Scientific Visualization: Plots the resulting global signal and provides physical context.
+    - Optimized Performance: Uses a 'lite' dataset for fast initialization.
+
+Author: [Your Name / Team Name]
+"""
+
 import os
 import streamlit as st
 import numpy as np
@@ -5,17 +25,18 @@ import matplotlib.pyplot as plt
 import pickle
 
 # --- 1. CONFIGURATION ---
-# חובה: הגדרת תאימות ל-Keras הישן
+# Mandatory: Define Legacy Keras compatibility for the emulator model
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
 from build_NN import FCemu
 
 # --- 2. PATH CONFIGURATION ---
-# וודא שהנתיב הזה נכון אצלך במחשב!
+# Update this path to match your local environment
 MODEL_DIR = r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model'
 MODEL_NAME = '100b_model'
 LITE_DATA_FILE = 'emulator_data_lite.pk'
 
 # --- PARAMETER DESCRIPTIONS (Scientific) ---
+# Dictionary mapping parameter names to their physical descriptions
 PARAM_DESCRIPTIONS = {
     # Star Formation
     'F_STAR10': "Star Formation Efficiency ($f_{*,10}$): The fraction of gas converting to stars in halos of mass $10^{10} M_{\odot}$. Controls the intensity of the UV signal.",
@@ -73,7 +94,7 @@ The observable quantity is the differential brightness temperature, $\delta T_b$
 The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
 """)
 
-# משוואת ה-Tb המדעית
+# Scientific Equation
 st.latex(r"""
 \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
 """)
@@ -92,12 +113,13 @@ st.markdown("---")
 
 
 # --- 5. EMULATOR LOADER FUNCTION ---
-# שיניתי את השם ל-_v4 כדי לכפות רענון מוחלט
+# Note: Renamed to _v4 to force cache clearing if logic changes
 @st.cache_resource(show_spinner=False)
 def load_emulator_system_v4(model_dir, name):
     lite_path = os.path.join(model_dir, LITE_DATA_FILE)
     full_path = os.path.join(model_dir, 'training_files.pk')
 
+    # Logic: Prioritize LITE file for speed
     if os.path.exists(lite_path):
         data_path = lite_path
     elif os.path.exists(full_path):
@@ -106,16 +128,18 @@ def load_emulator_system_v4(model_dir, name):
         return None, None, None, None
 
     try:
+        # Load Data
         if 'lite' in data_path:
             X_test = pickle.load(open(data_path, 'rb'))
         else:
             data = pickle.load(open(data_path, 'rb'))
             X_test = data[4]
 
+        # Load Neural Network Emulator
         emulator = FCemu(restore=True, files_dir=model_dir, name=name)
         Z_BINS = emulator.z_glob
 
-        # מחזירים את השמות כמו שהם (raw), נטפל בהם בחוץ
+        # Return raw parameter names (bytes or strings), handled outside
         raw_names = emulator.param_names
 
         return emulator, X_test, Z_BINS, raw_names
@@ -130,12 +154,11 @@ with st.spinner('Initializing Emulator System...'):
     emulator, X_test, Z_BINS, raw_param_names = load_emulator_system_v4(MODEL_DIR, MODEL_NAME)
 
 if emulator is None:
-    st.error("System Error: Could not load emulator files.")
+    st.error("System Error: Could not load emulator files. Please check paths and data files.")
     st.stop()
 
 # --- 7. SAFETY NET: STRING CONVERSION ---
-# המרה כפויה של השמות כאן ועכשיו, מחוץ לפונקציה
-# זה פותר את השגיאה ב-100%
+# Convert parameter names from Bytes to String to prevent TypeError in Streamlit
 param_names = []
 for p in raw_param_names:
     if isinstance(p, bytes):
@@ -147,14 +170,15 @@ for p in raw_param_names:
 st.subheader("Interactive Parameter Exploration")
 
 st.write("**Parameters included in this model:**")
-# עכשיו זה בטוח יעבוד כי param_names עבר המרה הרגע
 st.info(", ".join(param_names))
 
+# Calculate Min/Max/Mean for sliders based on the Test Set
 min_vals = np.min(X_test, axis=0)
 max_vals = np.max(X_test, axis=0)
 mean_vals = np.mean(X_test, axis=0)
 num_params = X_test.shape[1]
 
+# Layout: Two columns
 col1, col2 = st.columns([1, 2])
 
 with col1:
@@ -166,10 +190,10 @@ with col1:
 
 current_param_name = param_names[selected_param_index]
 
-# שליפת התיאור
+# Retrieve parameter description
 desc_key = current_param_name.strip()
 if desc_key not in PARAM_DESCRIPTIONS:
-    # ניסיון למצוא מפתח דומה אם יש בעיות רווחים
+    # Try finding partial matches if exact key is missing
     for key in PARAM_DESCRIPTIONS:
         if key in desc_key:
             desc_key = key
@@ -189,6 +213,7 @@ with col2:
     )
 
 # --- 9. PREDICTION ---
+# Prepare input vector: All means, except the selected parameter
 input_vector = mean_vals.copy()
 input_vector[selected_param_index] = selected_value
 input_vector_batch = input_vector.reshape(1, -1)
@@ -202,17 +227,19 @@ except Exception:
 # --- 10. PLOTTING ---
 st.subheader(f"Global Signal Prediction: $\delta T_b$ vs Redshift")
 
-Tb_index = 3
+Tb_index = 3 # Index for Brightness Temperature in model output
 sample_idx = 0
 
 if len(predictions) > Tb_index:
     Tb_data = predictions[Tb_index][sample_idx]
 
+    # Align Z-axis
     if len(Z_BINS) == len(Tb_data):
         x_axis = Z_BINS
     else:
         x_axis = range(len(Tb_data))
 
+    # Create Figure
     fig, ax = plt.subplots(figsize=(10, 5))
 
     ax.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label='Emulator Prediction')
@@ -221,12 +248,14 @@ if len(predictions) > Tb_index:
     ax.set_ylabel(r'Brightness Temperature $\delta T_b$ [mK]', fontsize=12)
     ax.set_title(f'Effect of varying {current_param_name}', fontsize=14)
 
+    # Reference Lines
     ax.axhline(y=0, color='white', linestyle='--', alpha=0.5)
     ax.grid(True, which='both', linestyle='--', alpha=0.3)
     ax.legend(loc='upper right')
 
+    # Styling for Streamlit Dark Theme
     fig.patch.set_alpha(0.0)
-    ax.set_facecolor((0, 0, 0, 0.2))  # RGBA tuple fixed
+    ax.set_facecolor((0, 0, 0, 0.2))  # RGBA tuple for matplotlib compatibility
 
     ax.tick_params(colors='white')
     ax.xaxis.label.set_color('white')
