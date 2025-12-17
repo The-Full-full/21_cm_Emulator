@@ -15,7 +15,7 @@ Key Features:
     - Scientific Visualization: Plots the resulting global signal and provides physical context.
     - Optimized Performance: Uses a 'lite' dataset for fast initialization.
 
-Author: [Your Name / Team Name]
+Author: [ron + roy / Team Name]
 """
 
 import os
@@ -30,8 +30,15 @@ os.environ["TF_USE_LEGACY_KERAS"] = "1"
 from build_NN import FCemu
 
 # --- 2. PATH CONFIGURATION ---
-# Update this path to match your local environment
-MODEL_DIR = r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model'
+# Use relative paths to ensure the app runs on any machine (local or cloud)
+# regardless of the user directory structure.
+
+# Get the absolute path of the directory where this script (app.py) is located
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Construct the full path to the model directory relative to the script location
+MODEL_DIR = os.path.join(CURRENT_DIR, '100b_tr_set_model')
+
 MODEL_NAME = '100b_model'
 LITE_DATA_FILE = 'emulator_data_lite.pk'
 
