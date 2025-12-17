@@ -1,0 +1,16 @@
+Core application framework
+
+streamlit
+
+Data manipulation and mathematical operations
+
+numpy
+pandas
+
+Plotting and visualization
+
+matplotlib
+
+Machine Learning framework
+
+tensorflow
