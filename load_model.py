@@ -1,6 +1,6 @@
 import os
 
-# --- תיקון תאימות (חייב להיות השורה הראשונה בקובץ) ---
+# --- Compatibility Fix (Must be the first line) ---
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
 # -----------------------------------------------------
 
@@ -10,51 +10,52 @@ import matplotlib.pyplot as plt
 from build_NN import FCemu
 
 
-def load_model_and_predict(model_dir, name,
-                           testing_files_dir=None,
-                           ):
+def load_model_and_predict(model_dir, name, testing_files_dir=None):
+    """
+    Loads the model, performs prediction on the test set, and visualizes 5 key metrics.
+    """
     if testing_files_dir is None:
         testing_files_dir = model_dir
 
-    # --- הקוד המקורי של טעינת הנתונים ---
+    # --- Load Data ---
     print("Loading data...")
-    data = pickle.load(open(f'{testing_files_dir}/training_files.pk', 'rb'))
+    # Use os.path.join for cross-platform compatibility (Windows/Mac/Linux)
+    data_path = os.path.join(testing_files_dir, 'training_files.pk')
+
+    if not os.path.exists(data_path):
+        print(f"Error: Data file not found at {data_path}")
+        return
+
+    data = pickle.load(open(data_path, 'rb'))
     X_train, _, X_val, _, X_test, Y_test = data
 
-    # --- טעינת המודל ---
+    # --- Load Model ---
     print("Loading model...")
     emulator = FCemu(restore=True, files_dir=model_dir, name=name)
-    Z_BINS = emulator.z_glob  # ציר ה-Redshift
+    Z_BINS = emulator.z_glob  # Redshift axis
 
-    # --- ביצוע התחזית ---
+    # --- Run Prediction ---
     print("Running prediction (this might take a moment)...")
     predictions = emulator.predict(X_test)
 
-    # חישובים מקוריים של הקוד (לא נוגעים בזה)
-    upper_bounds = np.max(X_test, axis=0)
-    lower_bounds = np.min(X_test, axis=0)
-    x = 1
-
     # -------------------------------------------
-    # --- חלק הויזואליזציה החדש (5 חלונות) ---
+    # --- Visualization (5 Windows) ---
     # -------------------------------------------
     print("Visualizing results in 5 separate windows...")
 
-    sample_idx = 0  # בחירת הדוגמה הראשונה
+    sample_idx = 0  # Plot the first sample in the test set
 
-    # הגדרת ציר ה-X (Redshift) לגרפים שתלויים בו
-    # בודקים שהמימדים תואמים
+    # Define X-axis (Redshift)
     if len(predictions) > 1 and len(Z_BINS) == len(predictions[1][sample_idx]):
         x_axis = Z_BINS
         xlabel_z = 'Redshift (z)'
     else:
-        # גיבוי למקרה שמשהו במימדים לא מסתדר
+        # Fallback if dimensions don't match
         x_axis = range(len(predictions[1][sample_idx]))
         xlabel_z = 'Index'
 
-    # --- גרף 1: Power Spectrum (PS) ---
+    # --- Graph 1: Power Spectrum (PS) ---
     plt.figure(figsize=(10, 6))
-    # לוקחים חתך עבור ה-Redshift הראשון
     ps_data = predictions[0][sample_idx, :, 0, 0]
     plt.plot(ps_data, 'b-', linewidth=2, label='Predicted PS (z=z_0)')
     plt.title(f'1. Power Spectrum (at first Redshift) - Sample #{sample_idx}')
@@ -63,7 +64,7 @@ def load_model_and_predict(model_dir, name,
     plt.grid(True)
     plt.legend()
 
-    # --- גרף 2: Neutral Hydrogen Fraction (xHI) ---
+    # --- Graph 2: Neutral Hydrogen Fraction (xHI) ---
     if len(predictions) > 1:
         plt.figure(figsize=(10, 6))
         xHI_data = predictions[1][sample_idx]
@@ -73,8 +74,7 @@ def load_model_and_predict(model_dir, name,
         plt.ylabel('Fraction (0 to 1)')
         plt.grid(True)
 
-    # --- גרף 3: Brightness Temperature (Tb) ---
-    # זה הגרף שביקשת ספציפית - Tb ביחס ל-Redshift
+    # --- Graph 3: Brightness Temperature (Tb) ---
     if len(predictions) > 3:
         plt.figure(figsize=(10, 6))
         Tb_data = predictions[3][sample_idx]
@@ -83,11 +83,9 @@ def load_model_and_predict(model_dir, name,
         plt.xlabel(xlabel_z)
         plt.ylabel('Temperature [mK]')
         plt.grid(True)
-        # הוספת קו אפס לנוחות
         plt.axhline(y=0, color='k', linestyle='--', alpha=0.5)
 
-    # --- גרף 4: Kinetic Temperature (Tk) - הגרף החדש! ---
-    # Tk הוא בדרך כלל באינדקס 4
+    # --- Graph 4: Kinetic Temperature (Tk) ---
     if len(predictions) > 4:
         plt.figure(figsize=(10, 6))
         Tk_data = predictions[4][sample_idx]
@@ -95,10 +93,10 @@ def load_model_and_predict(model_dir, name,
         plt.title(f'4. Kinetic Temperature (Tk)')
         plt.xlabel(xlabel_z)
         plt.ylabel('Temperature [K]')
-        plt.yscale('log')  # סקאלה לוגריתמית
+        plt.yscale('log')
         plt.grid(True, which="both", ls="-")
 
-    # --- גרף 5: Spin Temperature (Ts) ---
+    # --- Graph 5: Spin Temperature (Ts) ---
     if len(predictions) > 5:
         plt.figure(figsize=(10, 6))
         Ts_data = predictions[5][sample_idx]
@@ -106,24 +104,37 @@ def load_model_and_predict(model_dir, name,
         plt.title(f'5. Spin Temperature (Ts)')
         plt.xlabel(xlabel_z)
         plt.ylabel('Temperature [K]')
-        plt.yscale('log')  # סקאלה לוגריתמית
+        plt.yscale('log')
         plt.grid(True, which="both", ls="-")
 
-    # פקודה שמציגה את כל החלונות שייצרנו
+    # Save plots
     print("Saving plots to project folder...")
+    try:
+        figs = [plt.figure(n) for n in plt.get_fignums()]
+        for i, fig in enumerate(figs):
+            fig.savefig(f'output_graph_{i + 1}.png', dpi=300)
+        print("Graphs saved successfully!")
+    except Exception as e:
+        print(f"Note: Could not auto-save graphs ({e})")
 
-    # טריק לשמירת כל הגרפים הפתוחים
-    figs = [plt.figure(n) for n in plt.get_fignums()]
-    for i, fig in enumerate(figs):
-        fig.savefig(f'output_graph_{i + 1}.png', dpi=300)  # שומר באיכות גבוהה
-
-    print("Graphs saved successfully!")
-    plt.show()  # מציג אותם על המסך
+    plt.show()
     print("Done.")
 
 
-# --- הפעלת הפונקציה ---
-# וודא שהנתיב מעודכן למחשב שלך
-load_model_and_predict(r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model',
-                       name='100b_model',
-                       )
+# --- Main Execution Block (The Fix) ---
+# This logic allows the file to run on ANY computer without changing paths manually.
+if __name__ == "__main__":
+
+    # 1. Get the directory where this script is located
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # 2. Define the model directory relative to this script
+    model_folder_path = os.path.join(current_dir, '100b_tr_set_model')
+    model_name = '100b_model'
+
+    # 3. Run the function safely
+    if os.path.exists(model_folder_path):
+        load_model_and_predict(model_folder_path, name=model_name)
+    else:
+        print(f"Error: Model folder not found at: {model_folder_path}")
+        print("Please ensure the '100b_tr_set_model' folder is in the same directory as this script.")
