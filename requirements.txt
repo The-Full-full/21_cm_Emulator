@@ -1,16 +1,16 @@
-# Core application framework
+#Core application framework
+
 streamlit
 
-# Data manipulation - Locked for TF compatibility
-numpy<2.0.0
+#Data manipulation and mathematical operations
+
+numpy
 pandas
 
-# Plotting and visualization
+#Plotting and visualization
+
 matplotlib
 
-# Machine Learning framework - The specific version needed
-tensorflow==2.13.0
+#Machine Learning framework
 
-# Helpers for scientific data
-scipy
-h5py
+tensorflow
