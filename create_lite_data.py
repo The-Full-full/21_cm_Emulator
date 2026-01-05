@@ -26,7 +26,11 @@ import sys
 # --- CONFIGURATION ---
 # Define the directory containing the model and data files
 # NOTE: Ensure this path is correct for your local machine
-MODEL_DIR = r'C:\Users\roy18\PycharmProjects\21_cm_Emulator\100b_tr_set_model'
+# Determine the absolute directory where this script is located
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Define the model directory relative to the script location
+MODEL_DIR = os.path.join(CURRENT_DIR, '100b_tr_set_model')
 
 # Define input (heavy) and output (lite) file paths
 input_heavy_file = os.path.join(MODEL_DIR, 'training_files.pk')
