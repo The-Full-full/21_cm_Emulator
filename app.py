@@ -15,7 +15,7 @@ Key Features:
     - Scientific Visualization: Plots the resulting global signal and provides physical context.
     - Optimized Performance: Uses a 'lite' dataset for fast initialization.
 
-Author: [ron + roy / Team Name]
+Author: [ron + roy / LabRats]
 """
 
 import os
@@ -37,9 +37,9 @@ from build_NN import FCemu
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the full path to the model directory relative to the script location
-MODEL_DIR = os.path.join(CURRENT_DIR, '100b_tr_set_model')
+MODEL_DIR = CURRENT_DIR
 
-MODEL_NAME = '100b_model'
+MODEL_NAME = '100b_model' # שים לב שהסיומת .h5 מתווספת אוטומטית בתוך ה-FCemu
 LITE_DATA_FILE = 'emulator_data_lite.pk'
 
 # --- PARAMETER DESCRIPTIONS (Scientific) ---
@@ -232,7 +232,7 @@ except Exception:
     st.stop()
 
 # --- 10. PLOTTING ---
-st.subheader(f"Global Signal Prediction: $\delta T_b$ vs Redshift")
+st.subheader(rf"Global Signal Prediction: $\delta T_b$ vs Redshift")
 
 Tb_index = 3 # Index for Brightness Temperature in model output
 sample_idx = 0
