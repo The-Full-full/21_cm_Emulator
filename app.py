@@ -66,30 +66,29 @@ PARAM_DESCRIPTIONS = {
 }
 
 # --- 3. STYLING ---
-# --- הקוד החדש (רקע חלל שחור עם כוכבים) ---
+# --- CSS Styling (Space Background) ---
 page_bg_img = """
 <style>
-/* הגדרת הרקע הראשי של האפליקציה */
+/* Define the main application background */
 [data-testid="stAppViewContainer"] {
-    background-color: black; /* צבע בסיס שחור */
-    /* טעינת תמונת כוכבים שקופה מהאינטרנט */
+    background-color: black; /* Base color */
+    /* Load transparent star pattern */
     background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
-    /* גורם לתמונה לחזור על עצמה ולרצף את כל המסך */
+    /* Repeat image to tile the screen */
     background-repeat: repeat;
-    color: white; /* צבע הטקסט נשאר לבן */
+    color: white; /* Keep text white */
 }
 
 [data-testid="stHeader"] {
     background-color: rgba(0,0,0,0);
 }
 
-/* (אופציונלי) אם הוספת קוד למרכוז כותרות, שמור עליו כאן */
+/* (Optional) Header centering logic */
 h1, h2, h3 {
     text-align: center;
 }
 </style>
 """
-st.markdown(page_bg_img, unsafe_allow_html=True)
 st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # --- 4. HEADER & INTRODUCTION (Scientific) ---
@@ -182,51 +181,55 @@ for p in raw_param_names:
 # --- 8. INTERACTIVE CONTROL ---
 st.subheader("Interactive Parameter Exploration")
 
-
 # Calculate Min/Max/Mean for sliders based on the Test Set
 min_vals = np.min(X_test, axis=0)
 max_vals = np.max(X_test, axis=0)
 mean_vals = np.mean(X_test, axis=0)
 num_params = X_test.shape[1]
 
-# Layout: Two columns
-col1, col2 = st.columns([1, 2])
-
-with col1:
-    selected_param_index = st.selectbox(
-        "Select Parameter to Vary:",
-        options=range(num_params),
-        format_func=lambda i: param_names[i] if i < len(param_names) else f"Param {i}"
-    )
-
-current_param_name = param_names[selected_param_index]
-
-# Retrieve parameter description
-desc_key = current_param_name.strip()
-if desc_key not in PARAM_DESCRIPTIONS:
-    # Try finding partial matches if exact key is missing
-    for key in PARAM_DESCRIPTIONS:
-        if key in desc_key:
-            desc_key = key
-            break
-
-param_desc = PARAM_DESCRIPTIONS.get(desc_key, "Control this parameter to see its effect on the 21cm signal.")
-
-with col2:
-    st.info(f"**{current_param_name}:** {param_desc}")
-
-    selected_value = st.slider(
-        f"Adjust Value",
-        min_value=float(min_vals[selected_param_index]),
-        max_value=float(max_vals[selected_param_index]),
-        value=float(mean_vals[selected_param_index]),
-        step=(float(max_vals[selected_param_index]) - float(min_vals[selected_param_index])) / 100.0
-    )
-
-# --- 9. PREDICTION ---
-# Prepare input vector: All means, except the selected parameter
+# Initialize input vector with means
 input_vector = mean_vals.copy()
-input_vector[selected_param_index] = selected_value
+
+# --- Reset Button Logic ---
+if st.button("Reset Parameters to Defaults"):
+    for i in range(num_params):
+        # Update the session state key for each slider to its mean value
+        st.session_state[f"slider_{i}"] = float(mean_vals[i])
+
+# Layout: Split sliders into 2 columns
+cols = st.columns(2)
+
+for i in range(num_params):
+    p_name = param_names[i]
+
+    # Retrieve parameter description
+    desc_key = p_name.strip()
+    if desc_key not in PARAM_DESCRIPTIONS:
+        for key in PARAM_DESCRIPTIONS:
+            if key in desc_key:
+                desc_key = key
+                break
+    p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
+
+    # Determine Range for Slider
+    current_min = float(min_vals[i])
+    current_max = float(max_vals[i])
+    current_default = float(mean_vals[i])
+
+    # Place slider in one of the columns
+    with cols[i % 2]:
+        # Note: key is required for session_state manipulation
+        val = st.slider(
+            label=f"{p_name}",
+            min_value=current_min,
+            max_value=current_max,
+            value=current_default,
+            step=(current_max - current_min) / 100.0,
+            help=p_desc,
+            key=f"slider_{i}"  # Unique key for reset functionality
+        )
+        input_vector[i] = val
+# --- 9. PREDICTION ---
 input_vector_batch = input_vector.reshape(1, -1)
 
 try:
@@ -236,13 +239,20 @@ except Exception:
     st.stop()
 
 # --- 10. PLOTTING ---
-st.subheader(f"Global Signal Prediction: $\delta T_b$ vs Redshift")
+st.subheader(f"Global Signal Prediction")
 
-Tb_index = 3 # Index for Brightness Temperature in model output
+# Indexes based on build_NN.py output structure
+Tb_index = 3
+xHI_index = 1
+Tk_index = 4
+Ts_index = 5
 sample_idx = 0
 
-if len(predictions) > Tb_index:
+if len(predictions) > Ts_index:
     Tb_data = predictions[Tb_index][sample_idx]
+    xHI_data = predictions[xHI_index][sample_idx]
+    Tk_data = predictions[Tk_index][sample_idx]
+    Ts_data = predictions[Ts_index][sample_idx]
 
     # Align Z-axis
     if len(Z_BINS) == len(Tb_data):
@@ -250,36 +260,55 @@ if len(predictions) > Tb_index:
     else:
         x_axis = range(len(Tb_data))
 
-    # Create Figure
-    fig, ax = plt.subplots(figsize=(10, 5))
+    # Calculate Tcmb (Theoretical Calculation)
+    Tcmb_data = 2.725 * (1 + x_axis)
 
-    # הגדרת טווח התצוגה של הצירים
-    ax.set_xlim(5, 35)  # קובע את ציר X (Redshift) בין 5 ל-35
-    ax.set_ylim(-200, 20)  # קובע את ציר Y (Brightness Temp) בין -200 ל-20
+    # Create Figure with 3 Subplots (Stacked)
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1]})
 
-    ax.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label='Emulator Prediction')
+    # --- Plot 1: Brightness Temperature (Ax1 - Top) ---
+    ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+    ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
+    ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
+    ax1.set_xlim(5, 35)
+    ax1.set_ylim(-200, 20)
+    ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+    ax1.grid(True, which='both', linestyle='--', alpha=0.3)
+    ax1.legend(loc='lower right')
 
-    ax.set_xlabel('Redshift ($z$)', fontsize=12)
-    ax.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
-    ax.set_title(f'Effect of varying {current_param_name}', fontsize=14)
+    # --- Plot 2: Neutral Hydrogen Fraction (Ax2 - Middle) ---
+    ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+    ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
+    ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
+    ax2.set_ylim(-0.1, 1.1)
+    ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+    ax2.legend(loc='lower right')
 
-    # Reference Lines
-    ax.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-    ax.grid(True, which='both', linestyle='--', alpha=0.3)
-    ax.legend(loc='upper right')
+    # --- Plot 3: Thermal History (Ax3 - Bottom) ---
+    ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+    ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+    ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
-    # Styling for Streamlit Dark Theme
+    ax3.set_ylabel('Temperature [K]', fontsize=12)
+    ax3.set_xlabel('Redshift ($z$)', fontsize=12)
+    ax3.set_title("Thermal History", fontsize=14, color='white')
+    ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+    ax3.legend(loc='lower right')
+
+    # --- Styling for Streamlit Dark Theme ---
     fig.patch.set_alpha(0.0)
-    ax.set_facecolor((0, 0, 0, 0.2))  # RGBA tuple for matplotlib compatibility
+    for ax in [ax1, ax2, ax3]:
+        ax.set_facecolor((0, 0, 0, 0.2))
+        ax.tick_params(colors='white')
+        ax.xaxis.label.set_color('white')
+        ax.yaxis.label.set_color('white')
+        ax.title.set_color('white')
+        for spine in ax.spines.values():
+            spine.set_color('white')
 
-    ax.tick_params(colors='white')
-    ax.xaxis.label.set_color('white')
-    ax.yaxis.label.set_color('white')
-    ax.title.set_color('white')
-    for spine in ax.spines.values():
-        spine.set_color('white')
-
+    # Manual layout adjustment instead of tight_layout
+    plt.subplots_adjust(hspace=0.3)
     st.pyplot(fig)
 
 else:
-    st.error("Model output structure mismatch (Tb not found).")
+    st.error("Model output structure mismatch (Indices out of range).")
