@@ -66,36 +66,42 @@ PARAM_DESCRIPTIONS = {
 }
 
 # --- 3. STYLING ---
+# --- הקוד החדש (רקע חלל שחור עם כוכבים) ---
 page_bg_img = """
 <style>
+/* הגדרת הרקע הראשי של האפליקציה */
 [data-testid="stAppViewContainer"] {
-    background-image: linear-gradient(to right bottom, #2e0000, #4b0082);
-    color: white;
+    background-color: black; /* צבע בסיס שחור */
+    /* טעינת תמונת כוכבים שקופה מהאינטרנט */
+    background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+    /* גורם לתמונה לחזור על עצמה ולרצף את כל המסך */
+    background-repeat: repeat;
+    color: white; /* צבע הטקסט נשאר לבן */
 }
+
 [data-testid="stHeader"] {
     background-color: rgba(0,0,0,0);
 }
-.stSpinner > div {
-    border-top-color: #00ff00 !important;
-}
-.stInfo {
-    background-color: rgba(20, 20, 50, 0.8) !important;
-    border-left: 5px solid #00ff00 !important;
+
+/* (אופציונלי) אם הוספת קוד למרכוז כותרות, שמור עליו כאן */
+h1, h2, h3 {
+    text-align: center;
 }
 </style>
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
+st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # --- 4. HEADER & INTRODUCTION (Scientific) ---
-st.title('The Global 21-cm Signal 🌌')
-st.markdown("### Probing the Cosmic Dawn and Epoch of Reionization")
+st.markdown("<h1 style='text-align: center;'>The Global 21 cm Signal </h1>", unsafe_allow_html=True)
+st.markdown("<h3 style='text-align: center;'>Probing the Cosmic Dawn and Epoch of Reionization</h3>", unsafe_allow_html=True)
 
 st.write("""
 The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
 This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
 """)
 
-st.subheader("Theoretical Framework")
+st.markdown("<h3 style='text-align: center;'>Theoretical Framework</h2>", unsafe_allow_html=True)
 st.write("""
 The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
 The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
@@ -176,8 +182,6 @@ for p in raw_param_names:
 # --- 8. INTERACTIVE CONTROL ---
 st.subheader("Interactive Parameter Exploration")
 
-st.write("**Parameters included in this model:**")
-st.info(", ".join(param_names))
 
 # Calculate Min/Max/Mean for sliders based on the Test Set
 min_vals = np.min(X_test, axis=0)
@@ -248,6 +252,10 @@ if len(predictions) > Tb_index:
 
     # Create Figure
     fig, ax = plt.subplots(figsize=(10, 5))
+
+    # הגדרת טווח התצוגה של הצירים
+    ax.set_xlim(5, 35)  # קובע את ציר X (Redshift) בין 5 ל-35
+    ax.set_ylim(-200, 20)  # קובע את ציר Y (Brightness Temp) בין -200 ל-20
 
     ax.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label='Emulator Prediction')
 
