@@ -23,6 +23,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+from scipy.ndimage import gaussian_filter1d
 
 # --- 1. CONFIGURATION ---
 # Mandatory: Define Legacy Keras compatibility for the emulator model
@@ -66,7 +67,7 @@ PARAM_DESCRIPTIONS = {
 }
 
 # --- 3. STYLING ---
-# --- CSS Styling (Space Background) ---
+# --- CSS Styling (Space Background + Navigation Bar) ---
 page_bg_img = """
 <style>
 /* Define the main application background */
@@ -87,41 +88,27 @@ page_bg_img = """
 h1, h2, h3 {
     text-align: center;
 }
+
+/* --- NAVIGATION BAR STYLING --- */
+/* Target the radio button container */
+[data-testid="stRadio"] > div {
+    display: flex;
+    justify-content: center; /* Center the buttons */
+    background-color: white; /* White background for the bar */
+    padding: 10px;
+    border-radius: 10px;
+    width: 100%;
+}
+
+/* Target the text labels inside the radio buttons */
+[data-testid="stRadio"] p {
+    font-size: 18px !important;
+    font-weight: bold;
+    color: #007BFF !important; /* Blue Text */
+}
 </style>
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
-
-# --- 4. HEADER & INTRODUCTION (Scientific) ---
-st.markdown("<h1 style='text-align: center;'>The Global 21 cm Signal </h1>", unsafe_allow_html=True)
-st.markdown("<h3 style='text-align: center;'>Probing the Cosmic Dawn and Epoch of Reionization</h3>", unsafe_allow_html=True)
-
-st.write("""
-The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
-This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
-""")
-
-st.markdown("<h3 style='text-align: center;'>Theoretical Framework</h2>", unsafe_allow_html=True)
-st.write("""
-The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
-The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
-""")
-
-# Scientific Equation
-st.latex(r"""
-\delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
-""")
-
-st.write("""
-Where:
-- $x_{HI}$ is the neutral hydrogen fraction.
-- $\delta_b$ is the baryon overdensity.
-- $z$ is the redshift.
-- The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
-    - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
-    - **Emission ($T_S > T_{CMB}$):** Positive signal.
-""")
-
-st.markdown("---")
 
 
 # --- 5. EMULATOR LOADER FUNCTION ---
@@ -160,155 +147,212 @@ def load_emulator_system_v4(model_dir, name):
         print(f"Error loading system: {e}")
         return None, None, None, None
 
+# --- NAVIGATION ---
+# Updated list based on user request
+nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
 
-# --- 6. LOAD SYSTEM ---
-with st.spinner('Initializing Emulator System...'):
-    emulator, X_test, Z_BINS, raw_param_names = load_emulator_system_v4(MODEL_DIR, MODEL_NAME)
+selected_page = st.radio(
+    "Navigation", 
+    nav_options,
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
-if emulator is None:
-    st.error("System Error: Could not load emulator files. Please check paths and data files.")
-    st.stop()
+st.markdown("---")
 
-# --- 7. SAFETY NET: STRING CONVERSION ---
-# Convert parameter names from Bytes to String to prevent TypeError in Streamlit
-param_names = []
-for p in raw_param_names:
-    if isinstance(p, bytes):
-        param_names.append(p.decode('utf-8'))
-    else:
-        param_names.append(str(p))
+# --- PAGE CONTENT ---
 
-# --- 8. INTERACTIVE CONTROL ---
-st.subheader("Interactive Parameter Exploration")
+if selected_page == "Home":
+    # --- MOVED EMULATOR CONTENT HERE ---
+    
+    # Header
+    st.markdown("<h1 style='text-align: center;'>The Global 21 cm Signal </h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>Probing the Cosmic Dawn and Epoch of Reionization</h3>", unsafe_allow_html=True)
 
-# Calculate Min/Max/Mean for sliders based on the Test Set
-min_vals = np.min(X_test, axis=0)
-max_vals = np.max(X_test, axis=0)
-mean_vals = np.mean(X_test, axis=0)
-num_params = X_test.shape[1]
+    st.write("""
+    The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
+    This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
+    """)
 
-# Initialize input vector with means
-input_vector = mean_vals.copy()
+    st.markdown("<h3 style='text-align: center;'>Theoretical Framework</h2>", unsafe_allow_html=True)
+    st.write("""
+    The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
+    The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
+    """)
 
-# --- Reset Button Logic ---
-if st.button("Reset Parameters to Defaults"):
+    # Scientific Equation
+    st.latex(r"""
+    \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
+    """)
+
+    st.write("""
+    Where:
+    - $x_{HI}$ is the neutral hydrogen fraction.
+    - $\delta_b$ is the baryon overdensity.
+    - $z$ is the redshift.
+    - The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
+        - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
+        - **Emission ($T_S > T_{CMB}$):** Positive signal.
+    """)
+
+    st.markdown("---")
+
+    # --- LOADER ---
+    with st.spinner('Initializing Emulator System...'):
+        emulator, X_test, Z_BINS, raw_param_names = load_emulator_system_v4(MODEL_DIR, MODEL_NAME)
+
+    if emulator is None:
+        st.error("System Error: Could not load emulator files. Please check paths and data files.")
+        st.stop()
+
+    # --- STRING CONVERSION ---
+    param_names = []
+    for p in raw_param_names:
+        if isinstance(p, bytes):
+            param_names.append(p.decode('utf-8'))
+        else:
+            param_names.append(str(p))
+
+    # --- INTERACTIVE CONTROL ---
+    st.subheader("Interactive Parameter Exploration")
+
+    # Metrics
+    min_vals = np.min(X_test, axis=0)
+    max_vals = np.max(X_test, axis=0)
+    mean_vals = np.mean(X_test, axis=0)
+    num_params = X_test.shape[1]
+    input_vector = mean_vals.copy()
+
+    # Reset Button
+    if st.button("Reset Parameters to Defaults"):
+        for i in range(num_params):
+            st.session_state[f"slider_{i}"] = float(mean_vals[i])
+
+    # Sliders
+    cols = st.columns(2)
     for i in range(num_params):
-        # Update the session state key for each slider to its mean value
-        st.session_state[f"slider_{i}"] = float(mean_vals[i])
+        p_name = param_names[i]
+        
+        # Friendly description mapping
+        desc_key = p_name.strip()
+        if desc_key not in PARAM_DESCRIPTIONS:
+            for key in PARAM_DESCRIPTIONS:
+                if key in desc_key:
+                    desc_key = key
+                    break
+        p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
 
-# Layout: Split sliders into 2 columns
-cols = st.columns(2)
+        current_min = float(min_vals[i])
+        current_max = float(max_vals[i])
+        current_default = float(mean_vals[i])
 
-for i in range(num_params):
-    p_name = param_names[i]
+        with cols[i % 2]:
+            val = st.slider(
+                label=f"{p_name}",
+                min_value=current_min,
+                max_value=current_max,
+                value=current_default,
+                step=(current_max - current_min) / 100.0,
+                help=p_desc,
+                key=f"slider_{i}"
+            )
+            input_vector[i] = val
+    
+    # --- PREDICTION ---
+    input_vector_batch = input_vector.reshape(1, -1)
+    try:
+        predictions = emulator.predict(input_vector_batch)
+    except Exception:
+        st.error("Emulator Prediction Failed")
+        st.stop()
 
-    # Retrieve parameter description
-    desc_key = p_name.strip()
-    if desc_key not in PARAM_DESCRIPTIONS:
-        for key in PARAM_DESCRIPTIONS:
-            if key in desc_key:
-                desc_key = key
-                break
-    p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
+    # --- PLOTTING ---
+    st.subheader(f"Global Signal Prediction")
 
-    # Determine Range for Slider
-    current_min = float(min_vals[i])
-    current_max = float(max_vals[i])
-    current_default = float(mean_vals[i])
+    Tb_index = 3
+    xHI_index = 1
+    Tk_index = 4
+    Ts_index = 5
+    sample_idx = 0
 
-    # Place slider in one of the columns
-    with cols[i % 2]:
-        # Note: key is required for session_state manipulation
-        val = st.slider(
-            label=f"{p_name}",
-            min_value=current_min,
-            max_value=current_max,
-            value=current_default,
-            step=(current_max - current_min) / 100.0,
-            help=p_desc,
-            key=f"slider_{i}"  # Unique key for reset functionality
-        )
-        input_vector[i] = val
-# --- 9. PREDICTION ---
-input_vector_batch = input_vector.reshape(1, -1)
+    if len(predictions) > Ts_index:
+        Tb_data = predictions[Tb_index][sample_idx]
+        xHI_data = predictions[xHI_index][sample_idx]
+        Tk_data = predictions[Tk_index][sample_idx]
+        Ts_data = predictions[Ts_index][sample_idx]
 
-try:
-    predictions = emulator.predict(input_vector_batch)
-except Exception:
-    st.error("Emulator Prediction Failed")
-    st.stop()
+        # Gaussian Smoothing
+        Tb_data = gaussian_filter1d(Tb_data, sigma=1)
 
-# --- 10. PLOTTING ---
-st.subheader(f"Global Signal Prediction")
+        if len(Z_BINS) == len(Tb_data):
+            x_axis = Z_BINS
+        else:
+            x_axis = range(len(Tb_data))
 
-# Indexes based on build_NN.py output structure
-Tb_index = 3
-xHI_index = 1
-Tk_index = 4
-Ts_index = 5
-sample_idx = 0
+        Tcmb_data = 2.725 * (1 + x_axis)
 
-if len(predictions) > Ts_index:
-    Tb_data = predictions[Tb_index][sample_idx]
-    xHI_data = predictions[xHI_index][sample_idx]
-    Tk_data = predictions[Tk_index][sample_idx]
-    Ts_data = predictions[Ts_index][sample_idx]
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1]})
 
-    # Align Z-axis
-    if len(Z_BINS) == len(Tb_data):
-        x_axis = Z_BINS
+        # Plot 1: Tb
+        ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+        ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
+        ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
+        ax1.set_xlim(5, 35)
+        ax1.set_ylim(-200, 20)
+        ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+        ax1.grid(True, which='both', linestyle='--', alpha=0.3)
+        ax1.legend(loc='lower right')
+
+        # Plot 2: xHI
+        ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+        ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
+        ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
+        ax2.set_ylim(-0.1, 1.1)
+        ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+        ax2.legend(loc='lower right')
+
+        # Plot 3: Thermal History
+        ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+        ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+        ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+
+        ax3.set_ylabel('Temperature [K]', fontsize=12)
+        ax3.set_xlabel('Redshift ($z$)', fontsize=12)
+        ax3.set_title("Thermal History", fontsize=14, color='white')
+        ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+        ax3.legend(loc='lower right')
+
+        # Dark Theme Styling
+        fig.patch.set_alpha(0.0)
+        for ax in [ax1, ax2, ax3]:
+            ax.set_facecolor((0, 0, 0, 0.2))
+            ax.tick_params(colors='white')
+            ax.xaxis.label.set_color('white')
+            ax.yaxis.label.set_color('white')
+            ax.title.set_color('white')
+            for spine in ax.spines.values():
+                spine.set_color('white')
+
+        plt.subplots_adjust(hspace=0.3)
+        st.pyplot(fig)
     else:
-        x_axis = range(len(Tb_data))
+        st.error("Model output structure mismatch.")
 
-    # Calculate Tcmb (Theoretical Calculation)
-    Tcmb_data = 2.725 * (1 + x_axis)
+elif selected_page == "Cosmological Parameters":
+    st.title("Cosmological Parameters")
+    st.write("Detailed explanation of the cosmological parameters used in this emulator will appear here.")
+    st.write("Current Placeholders: F_STAR10, ALPHA_STAR, t_STAR, F_ESC10, ALPHA_ESC, M_TURN, L_X, NU_X_THRESH, X_RAY_SPEC_INDEX, R_MFP, TAU_E")
 
-    # Create Figure with 3 Subplots (Stacked)
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1]})
+elif selected_page == "Relevant Degeneracies":
+    st.title("Relevant Degeneracies")
+    st.write("This section will discuss the physical degeneracies between different parameters that affect the 21-cm signal.")
+    st.write("(e.g., Degeneracy between star formation efficiency and X-ray heating intensity during Cosmic Dawn)")
 
-    # --- Plot 1: Brightness Temperature (Ax1 - Top) ---
-    ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
-    ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
-    ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
-    ax1.set_xlim(5, 35)
-    ax1.set_ylim(-200, 20)
-    ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-    ax1.grid(True, which='both', linestyle='--', alpha=0.3)
-    ax1.legend(loc='lower right')
+elif selected_page == "About Us":
+    st.title("About Us")
+    st.write("We are a research team dedicated to exploring the Epoch of Reionization.")
 
-    # --- Plot 2: Neutral Hydrogen Fraction (Ax2 - Middle) ---
-    ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
-    ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
-    ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
-    ax2.set_ylim(-0.1, 1.1)
-    ax2.grid(True, which='both', linestyle='--', alpha=0.3)
-    ax2.legend(loc='lower right')
-
-    # --- Plot 3: Thermal History (Ax3 - Bottom) ---
-    ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-    ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-    ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
-
-    ax3.set_ylabel('Temperature [K]', fontsize=12)
-    ax3.set_xlabel('Redshift ($z$)', fontsize=12)
-    ax3.set_title("Thermal History", fontsize=14, color='white')
-    ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
-    ax3.legend(loc='lower right')
-
-    # --- Styling for Streamlit Dark Theme ---
-    fig.patch.set_alpha(0.0)
-    for ax in [ax1, ax2, ax3]:
-        ax.set_facecolor((0, 0, 0, 0.2))
-        ax.tick_params(colors='white')
-        ax.xaxis.label.set_color('white')
-        ax.yaxis.label.set_color('white')
-        ax.title.set_color('white')
-        for spine in ax.spines.values():
-            spine.set_color('white')
-
-    # Manual layout adjustment instead of tight_layout
-    plt.subplots_adjust(hspace=0.3)
-    st.pyplot(fig)
-
-else:
-    st.error("Model output structure mismatch (Indices out of range).")
+elif selected_page == "Credits":
+    st.title("Credits & Acknowledgements")
+    st.write("Special thanks to our supervisor and the open-source community.")
+    st.write("Powered by Streamlit, TensorFlow, and Python.")
