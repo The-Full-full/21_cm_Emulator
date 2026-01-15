@@ -25,6 +25,8 @@ import matplotlib.pyplot as plt
 import pickle
 from scipy.ndimage import gaussian_filter1d
 
+st.set_page_config(layout="wide", page_title="21cm Emulator")
+
 # --- 1. CONFIGURATION ---
 # Mandatory: Define Legacy Keras compatibility for the emulator model
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
@@ -140,7 +142,6 @@ st.markdown("---")
 # --- PAGE CONTENT ---
 
 if selected_page == "Home":
-    # --- MOVED EMULATOR CONTENT HERE ---
     
     # Header
     st.markdown("<h1 style='text-align: center;'>The Global 21 cm Signal </h1>", unsafe_allow_html=True)
@@ -203,31 +204,39 @@ if selected_page == "Home":
     num_params = len(param_names)
     input_vector = np.zeros(num_params)
 
-    # Reset Button
-    if st.button("Reset Parameters to Defaults"):
-        for i in range(num_params):
-            default_val = (min_vals[i] + max_vals[i]) / 2.0
-            st.session_state[f"slider_{i}"] = float(default_val)
-
     # Sliders
-    cols = st.columns(2)
-    for i in range(num_params):
-        p_name = param_names[i]
-        
-        # Friendly description mapping
-        desc_key = p_name.strip()
-        if desc_key not in PARAM_DESCRIPTIONS:
-            for key in PARAM_DESCRIPTIONS:
-                if key in desc_key:
-                    desc_key = key
-                    break
-        p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
 
-        current_min = float(min_vals[i])
-        current_max = float(max_vals[i])
-        current_default = (current_min + current_max) / 2.0
+    # צור פריסה: שמאל (פקדים) לוקח חלק 1, ימין (גרפים) לוקח 3 חלקים
+    col_controls, col_graphs = st.columns([1, 3], gap="medium")
 
-        with cols[i % 2]:
+    # --- צד שמאל: סליידרים ---
+    with col_controls:
+        st.subheader("Parameters")
+
+        # כפתור איפוס
+        if st.button("Reset Parameters to Defaults"):
+            for i in range(num_params):
+                default_val = (min_vals[i] + max_vals[i]) / 2.0
+                st.session_state[f"slider_{i}"] = float(default_val)
+
+        # לולאת הסליידרים - פשוטה יותר, בטור אחד
+        for i in range(num_params):
+            p_name = param_names[i]
+
+            # (לוגיקת תיאור הסליידר נשארת אותו דבר...)
+            desc_key = p_name.strip()
+            if desc_key not in PARAM_DESCRIPTIONS:
+                for key in PARAM_DESCRIPTIONS:
+                    if key in desc_key:
+                        desc_key = key
+                        break
+            p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
+
+            current_min = float(min_vals[i])
+            current_max = float(max_vals[i])
+            current_default = (current_min + current_max) / 2.0
+
+            # יצירת הסליידר (בלי העמודות הפנימיות)
             val = st.slider(
                 label=f"{p_name}",
                 min_value=current_min,
@@ -238,93 +247,100 @@ if selected_page == "Home":
                 key=f"slider_{i}"
             )
             input_vector[i] = val
-    
-    # --- PREDICTION ---
-    input_vector_batch = input_vector.reshape(1, -1)
-    try:
-        predictions = emulator.predict(input_vector_batch)
-    except Exception as e:
-        st.error(f"Emulator Prediction Failed: {e}")
-        st.stop()
+    # --- צד ימין: גרפים ---
+    with col_graphs:
+        # כל הקוד של ה-Prediction וה-Plotting נכנס לכאן (פשוט תזיז אותו טאב אחד ימינה)
 
-    # --- PLOTTING ---
-    st.subheader(f"Global Signal Prediction")
+        # --- PREDICTION ---
+        input_vector_batch = input_vector.reshape(1, -1)
+        try:
+            predictions = emulator.predict(input_vector_batch)
+        except Exception as e:
+            st.error(f"Emulator Prediction Failed: {e}")
+            st.stop()
 
-    # New Model Indices (Verified)
-    xHI_index = 0
-    Tb_index = 1
-    Tk_index = 2
-    Ts_index = 3
-    
-    sample_idx = 0
+        # --- PLOTTING ---
+        st.subheader(f"Global Signal Prediction")
 
-    if len(predictions) > Ts_index:
-        xHI_data = predictions[xHI_index][sample_idx]
-        Tb_data = predictions[Tb_index][sample_idx]
-        Tk_data = predictions[Tk_index][sample_idx]
-        Ts_data = predictions[Ts_index][sample_idx]
+        # New Model Indices (Verified)
+        xHI_index = 0
+        Tb_index = 1
+        Tk_index = 2
+        Ts_index = 3
 
-        # Gaussian Smoothing (Apply to Tb)
-        Tb_data = gaussian_filter1d(Tb_data, sigma=1)
+        sample_idx = 0
 
-        # X-Axis Logic
-        if len(z_bins) == len(Tb_data):
-            x_axis = z_bins
+        if len(predictions) > Ts_index:
+            xHI_data = predictions[xHI_index][sample_idx]
+            Tb_data = predictions[Tb_index][sample_idx]
+            Tk_data = predictions[Tk_index][sample_idx]
+            Ts_data = predictions[Ts_index][sample_idx]
+
+            # Gaussian Smoothing (Apply to Tb)
+            #Tb_data = gaussian_filter1d(Tb_data, sigma=1)
+
+            # X-Axis Logic
+            if len(z_bins) == len(Tb_data):
+                x_axis = z_bins
+            else:
+                x_axis = range(len(Tb_data))
+
+            Tcmb_data = 2.725 * (1 + x_axis)
+
+            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(11, 16), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+
+            # Plot 1: Tb
+            ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+            ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
+            ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
+            ax1.set_xlim(5, 35) # Standard Range
+            if np.min(Tb_data) < -200:
+                 ax1.set_ylim(np.min(Tb_data)*1.1, 20)
+            else:
+                 ax1.set_ylim(-200, 20)
+
+            ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+            ax1.grid(True, which='both', linestyle='--', alpha=0.3)
+            ax1.legend(loc='lower right')
+
+            # Plot 2: xHI
+            ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+            ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
+            ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
+            ax2.set_ylim(-0.1, 1.1)
+            ax2.set_xlim(5, 35)
+            ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+            ax2.legend(loc='lower right')
+
+            # Plot 3: Thermal History
+            ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+            ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+            ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+
+            ax3.set_ylabel('Temperature [K]', fontsize=12)
+            ax3.set_title("Thermal History", fontsize=14, color='white')
+            ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+            ax3.legend(loc='lower right')
+            ax3.set_xlim(5, 35)
+
+            for ax in [ax1, ax2, ax3]:
+                ax.set_xlabel('Redshift ($z$)', fontsize=12)
+
+            # Dark Theme Styling
+            fig.patch.set_alpha(0.0)
+            for ax in [ax1, ax2, ax3]:
+                ax.set_facecolor((0, 0, 0, 0.2))
+                ax.tick_params(colors='white')
+                ax.xaxis.label.set_color('white')
+                ax.yaxis.label.set_color('white')
+                ax.title.set_color('white')
+                for spine in ax.spines.values():
+                    spine.set_color('white')
+
+            plt.subplots_adjust(hspace=0.35)
+            st.pyplot(fig)
         else:
-            x_axis = range(len(Tb_data))
-
-        Tcmb_data = 2.725 * (1 + x_axis)
-
-        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12), sharex=True, gridspec_kw={'height_ratios': [1, 1, 1]})
-
-        # Plot 1: Tb
-        ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
-        ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
-        ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
-        ax1.set_xlim(5, 35) # Standard Range
-        if np.min(Tb_data) < -200:
-             ax1.set_ylim(np.min(Tb_data)*1.1, 20)
-        else:
-             ax1.set_ylim(-200, 20)
-        
-        ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-        ax1.grid(True, which='both', linestyle='--', alpha=0.3)
-        ax1.legend(loc='lower right')
-
-        # Plot 2: xHI
-        ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
-        ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
-        ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
-        ax2.set_ylim(-0.1, 1.1)
-        ax2.grid(True, which='both', linestyle='--', alpha=0.3)
-        ax2.legend(loc='lower right')
-
-        # Plot 3: Thermal History
-        ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-        ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-        ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
-
-        ax3.set_ylabel('Temperature [K]', fontsize=12)
-        ax3.set_xlabel('Redshift ($z$)', fontsize=12)
-        ax3.set_title("Thermal History", fontsize=14, color='white')
-        ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
-        ax3.legend(loc='lower right')
-
-        # Dark Theme Styling
-        fig.patch.set_alpha(0.0)
-        for ax in [ax1, ax2, ax3]:
-            ax.set_facecolor((0, 0, 0, 0.2))
-            ax.tick_params(colors='white')
-            ax.xaxis.label.set_color('white')
-            ax.yaxis.label.set_color('white')
-            ax.title.set_color('white')
-            for spine in ax.spines.values():
-                spine.set_color('white')
-
-        plt.subplots_adjust(hspace=0.3)
-        st.pyplot(fig)
-    else:
-        st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
+            st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
 
 elif selected_page == "Cosmological Parameters":
     st.title("Cosmological Parameters")
