@@ -38,10 +38,9 @@ from build_NN import FCemu
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Construct the full path to the model directory relative to the script location
-MODEL_DIR = os.path.join(CURRENT_DIR, '100b_tr_set_model')
+MODEL_DIR = os.path.join(CURRENT_DIR, 'model_files')
 
-MODEL_NAME = '100b_model'
-LITE_DATA_FILE = 'emulator_data_lite.pk'
+MODEL_NAME = 'globals_model'
 
 # --- PARAMETER DESCRIPTIONS (Scientific) ---
 # Dictionary mapping parameter names to their physical descriptions
@@ -112,40 +111,18 @@ st.markdown(page_bg_img, unsafe_allow_html=True)
 
 
 # --- 5. EMULATOR LOADER FUNCTION ---
-# Note: Renamed to _v4 to force cache clearing if logic changes
+# Note: Renamed to _v5 to force cache clearing
 @st.cache_resource(show_spinner=False)
-def load_emulator_system_v4(model_dir, name):
-    lite_path = os.path.join(model_dir, LITE_DATA_FILE)
-    full_path = os.path.join(model_dir, 'training_files.pk')
-
-    # Logic: Prioritize LITE file for speed
-    if os.path.exists(lite_path):
-        data_path = lite_path
-    elif os.path.exists(full_path):
-        data_path = full_path
-    else:
-        return None, None, None, None
-
+def load_emulator_system_v5(model_dir, name):
     try:
-        # Load Data
-        if 'lite' in data_path:
-            X_test = pickle.load(open(data_path, 'rb'))
-        else:
-            data = pickle.load(open(data_path, 'rb'))
-            X_test = data[4]
-
         # Load Neural Network Emulator
+        # The FCemu restore method automatically reads 'model_data.h5'
         emulator = FCemu(restore=True, files_dir=model_dir, name=name)
-        Z_BINS = emulator.z_glob
-
-        # Return raw parameter names (bytes or strings), handled outside
-        raw_names = emulator.param_names
-
-        return emulator, X_test, Z_BINS, raw_names
+        return emulator
 
     except Exception as e:
         print(f"Error loading system: {e}")
-        return None, None, None, None
+        return None
 
 # --- NAVIGATION ---
 # Updated list based on user request
@@ -198,14 +175,21 @@ if selected_page == "Home":
     st.markdown("---")
 
     # --- LOADER ---
-    with st.spinner('Initializing Emulator System...'):
-        emulator, X_test, Z_BINS, raw_param_names = load_emulator_system_v4(MODEL_DIR, MODEL_NAME)
+    with st.spinner('Initializing Emulator System (New Model)...'):
+        emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
 
     if emulator is None:
-        st.error("System Error: Could not load emulator files. Please check paths and data files.")
+        st.error(f"System Error: Could not load emulator files from {MODEL_DIR}. Please check the files and try again.")
         st.stop()
 
-    # --- STRING CONVERSION ---
+    # --- METADATA EXTRACTION ---
+    # Extract parameter info directly from the loaded emulator object
+    raw_param_names = emulator.param_names
+    min_vals = emulator.tr_params_min
+    max_vals = emulator.tr_params_max
+    z_bins = emulator.z_glob
+
+    # Decode bytes if necessary
     param_names = []
     for p in raw_param_names:
         if isinstance(p, bytes):
@@ -216,17 +200,14 @@ if selected_page == "Home":
     # --- INTERACTIVE CONTROL ---
     st.subheader("Interactive Parameter Exploration")
 
-    # Metrics
-    min_vals = np.min(X_test, axis=0)
-    max_vals = np.max(X_test, axis=0)
-    mean_vals = np.mean(X_test, axis=0)
-    num_params = X_test.shape[1]
-    input_vector = mean_vals.copy()
+    num_params = len(param_names)
+    input_vector = np.zeros(num_params)
 
     # Reset Button
     if st.button("Reset Parameters to Defaults"):
         for i in range(num_params):
-            st.session_state[f"slider_{i}"] = float(mean_vals[i])
+            default_val = (min_vals[i] + max_vals[i]) / 2.0
+            st.session_state[f"slider_{i}"] = float(default_val)
 
     # Sliders
     cols = st.columns(2)
@@ -244,7 +225,7 @@ if selected_page == "Home":
 
         current_min = float(min_vals[i])
         current_max = float(max_vals[i])
-        current_default = float(mean_vals[i])
+        current_default = (current_min + current_max) / 2.0
 
         with cols[i % 2]:
             val = st.slider(
@@ -262,30 +243,33 @@ if selected_page == "Home":
     input_vector_batch = input_vector.reshape(1, -1)
     try:
         predictions = emulator.predict(input_vector_batch)
-    except Exception:
-        st.error("Emulator Prediction Failed")
+    except Exception as e:
+        st.error(f"Emulator Prediction Failed: {e}")
         st.stop()
 
     # --- PLOTTING ---
     st.subheader(f"Global Signal Prediction")
 
-    Tb_index = 3
-    xHI_index = 1
-    Tk_index = 4
-    Ts_index = 5
+    # New Model Indices (Verified)
+    xHI_index = 0
+    Tb_index = 1
+    Tk_index = 2
+    Ts_index = 3
+    
     sample_idx = 0
 
     if len(predictions) > Ts_index:
-        Tb_data = predictions[Tb_index][sample_idx]
         xHI_data = predictions[xHI_index][sample_idx]
+        Tb_data = predictions[Tb_index][sample_idx]
         Tk_data = predictions[Tk_index][sample_idx]
         Ts_data = predictions[Ts_index][sample_idx]
 
-        # Gaussian Smoothing
+        # Gaussian Smoothing (Apply to Tb)
         Tb_data = gaussian_filter1d(Tb_data, sigma=1)
 
-        if len(Z_BINS) == len(Tb_data):
-            x_axis = Z_BINS
+        # X-Axis Logic
+        if len(z_bins) == len(Tb_data):
+            x_axis = z_bins
         else:
             x_axis = range(len(Tb_data))
 
@@ -297,8 +281,12 @@ if selected_page == "Home":
         ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
         ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
         ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
-        ax1.set_xlim(5, 35)
-        ax1.set_ylim(-200, 20)
+        ax1.set_xlim(5, 35) # Standard Range
+        if np.min(Tb_data) < -200:
+             ax1.set_ylim(np.min(Tb_data)*1.1, 20)
+        else:
+             ax1.set_ylim(-200, 20)
+        
         ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
         ax1.grid(True, which='both', linestyle='--', alpha=0.3)
         ax1.legend(loc='lower right')
@@ -336,12 +324,14 @@ if selected_page == "Home":
         plt.subplots_adjust(hspace=0.3)
         st.pyplot(fig)
     else:
-        st.error("Model output structure mismatch.")
+        st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
 
 elif selected_page == "Cosmological Parameters":
     st.title("Cosmological Parameters")
-    st.write("Detailed explanation of the cosmological parameters used in this emulator will appear here.")
-    st.write("Current Placeholders: F_STAR10, ALPHA_STAR, t_STAR, F_ESC10, ALPHA_ESC, M_TURN, L_X, NU_X_THRESH, X_RAY_SPEC_INDEX, R_MFP, TAU_E")
+    st.write("Parameters currently used by the emulator:")
+    # Display the list dynamically if possible, or just the dict keys
+    for key, val in PARAM_DESCRIPTIONS.items():
+        st.write(f"**{key}**: {val}")
 
 elif selected_page == "Relevant Degeneracies":
     st.title("Relevant Degeneracies")

@@ -5,4 +5,6 @@ __pycache__/
 *.pyc
 *.h5
 *.pk
-!100b_tr_set_model/emulator_data_lite.pk
+!model_files/
+!model_files/*.h5
+!model_files/*.pk

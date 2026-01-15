@@ -46,19 +46,34 @@ def create_model(input_dim, hidden_dims, FC_layer_size, out_dim, activation, nam
         next_layer = tf.keras.layers.Dense(FC_layer_size, activation=activation)(next_layer)
     last_common_layer = tf.keras.layers.Dense(out_dim, activation=activation)(next_layer)
 
-    ps_output = build_cnn(last_common_layer, activation=activation)
+    # ps_output = build_cnn(last_common_layer, activation=activation)
 
     xHI_output = build_FC_nn(last_common_layer, activation=activation, out_dim=92, name='xHI')
 
+    xHI_output = tf.keras.layers.Reshape((92, 1))(xHI_output)
+    xHI_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_xHI")(xHI_output)
+    xHI_output = tf.keras.layers.Flatten(name='xHI_output')(xHI_output_smoothed)
     # tau_output = build_FC_nn(last_common_layer, out_dim=1, name='tau', activation=activation)
     #
-    # Tb_output = build_FC_nn(last_common_layer, out_dim=92, name='Tb', activation=activation)
+    Tb_output = build_FC_nn(last_common_layer, out_dim=92, name='Tb', activation=activation)
+
+    Tb_output = tf.keras.layers.Reshape((92, 1))(Tb_output)
+    Tb_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Tb")(Tb_output)
+    Tb_output = tf.keras.layers.Flatten(name='Tb_output')(Tb_output_smoothed)
     #
-    # Tk_output = build_FC_nn(last_common_layer, out_dim=92, name='Tk', activation=activation)
+    Tk_output = build_FC_nn(last_common_layer, out_dim=92, name='Tk', activation=activation)
+
+    Tk_output = tf.keras.layers.Reshape((92, 1))(Tk_output)
+    Tk_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Tk")(Tk_output)
+    Tk_output = tf.keras.layers.Flatten(name='Tk_output')(Tk_output_smoothed)
     #
-    # Ts_output = build_FC_nn(last_common_layer, FC_layer_size=400, out_dim=92, name='Ts',
-    #                         activation=activation)  # , activation='linear', use_custom_act=True)
-    #
+    Ts_output = build_FC_nn(last_common_layer, FC_layer_size=400, out_dim=92, name='Ts',
+                            activation=activation)  # , activation='linear', use_custom_act=True)
+
+    Ts_output = tf.keras.layers.Reshape((92, 1))(Ts_output)
+    Ts_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Ts")(Ts_output)
+    Ts_output = tf.keras.layers.Flatten(name='Ts_output')(Ts_output_smoothed)
+
     # UVLF_common = build_FC_nn(last_common_layer, out_dim=256, name='UVLF_common')
     #
     # UVLF_z4 = build_FC_nn(UVLF_common, out_dim=50, FC_layer_size=100, name='UVLFz4', activation=activation)
@@ -75,11 +90,13 @@ def create_model(input_dim, hidden_dims, FC_layer_size, out_dim, activation, nam
     #
     # UVLF_z10 = build_FC_nn(UVLF_common, out_dim=50, FC_layer_size=100, name='UVLFz10', activation=activation)
 
-    demo_model = tf.keras.Model(input_layer, outputs=[ps_output, xHI_output,
+    demo_model = tf.keras.Model(input_layer, outputs=[
+                                                      # ps_output,
+                                                      xHI_output,
                                                       # tau_output,
-                                                      # Tb_output,
-                                                      # Tk_output,
-                                                      # Ts_output,
+                                                      Tb_output,
+                                                      Tk_output,
+                                                      Ts_output,
                                                       # UVLF_z4, UVLF_z5,
                                                       # UVLF_z6, UVLF_z7,
                                                       # UVLF_z8,
@@ -110,7 +127,7 @@ def build_FC_nn(input_layer, out_dim, name, hidden_dims=4, FC_layer_size=256, ac
             next_layer = CustomLayer(units=FC_layer_size, trainable=True)(next_layer)
 
     if name != 'UVLF_common':
-        output_layer = tf.keras.layers.Dense(out_dim, activation='linear', name=name + '_output')(next_layer)
+        output_layer = tf.keras.layers.Dense(out_dim, activation='linear', name=name)(next_layer)
     else:
         output_layer = tf.keras.layers.Dense(out_dim, activation=activation, name=name)(next_layer)
     return output_layer
@@ -222,7 +239,7 @@ class FCemu:
             self.input_dim = input_dim
             self.NN = create_model(input_dim=self.input_dim,
                                    hidden_dims=self.hidden_dims_FC,
-                                   FC_layer_size=self.FC_layer_size, out_dim=1024,
+                                   FC_layer_size=self.FC_layer_size, out_dim=256,
                                    activation=self.activation, name=self.name)
 
             self.tr_params_min = -np.inf
@@ -230,16 +247,18 @@ class FCemu:
             self.init_learning_rate = 0.001
             self.mean_dict = dict()
             self.std_dict = dict()
-            self.output_names = ['ps', 'xHI',
-                                 'tau',
+            self.output_names = [
+                                 # 'ps',
+                                 'xHI',
+                                 # 'tau',
                                  'Tb',
                                  'Tk',
                                  'Ts',
-                                 'UVLFz4', 'UVLFz5',
-                                 'UVLFz6', 'UVLFz7',
-                                 'UVLFz8',
-                                 'UVLFz9',
-                                 'UVLFz10'
+                                 # 'UVLFz4', 'UVLFz5',
+                                 # 'UVLFz6', 'UVLFz7',
+                                 # 'UVLFz8',
+                                 # 'UVLFz9',
+                                 # 'UVLFz10'
                                  ]
         else:
             assert len(files_dir) > 0, 'if you wish to restore a model please supply the model files directory'
@@ -285,9 +304,9 @@ class FCemu:
         # Y_tr[0] = np.log10(Y_tr[0])
         # for i, feature in enumerate(Y_tr):
         #     Y_tr[i] = np.array(Y_tr[i])
-        Y_tr[4] = np.log10(Y_tr[4])
-        Y_tr[5] = np.log10(Y_tr[5])
-        Y_tr[0] = np.log10(Y_tr[0])
+        Y_tr[2] = np.log10(Y_tr[2])
+        Y_tr[3] = np.log10(Y_tr[3])
+        # Y_tr[0] = np.log10(Y_tr[0])
         for i, feature in enumerate(Y_tr):
             # if i != 0:
             if self.output_names[i] not in self.mean_dict:
@@ -299,11 +318,11 @@ class FCemu:
     def postprocess_features(self, Y_pred):
         for i, feature in enumerate(Y_pred):
             Y_pred[i] = feature * self.std_dict[self.output_names[i]] + self.mean_dict[self.output_names[i]]
-        Y_pred[1] = gaussian_filter1d(np.clip(Y_pred[1], 0, 1), sigma=1)
-        Y_pred[5] = gaussian_filter1d(np.power(10, Y_pred[5]), sigma=1)
-        Y_pred[4] = gaussian_filter1d(np.power(10, Y_pred[4]), sigma=1)
-        Y_pred[3] = gaussian_filter1d(Y_pred[3], sigma=1)
-        Y_pred[0] = np.power(10, Y_pred[0])
+        Y_pred[0] = np.clip(Y_pred[0], 0, 1)
+        Y_pred[3] =np.power(10, Y_pred[3])
+        Y_pred[2] =np.power(10, Y_pred[2])
+        # Y_pred[1] = gaussian_filter1d(Y_pred[1], sigma=2)
+        # Y_pred[0] = np.power(10, Y_pred[0])
         return Y_pred
 
     # def preprocess_ps(self, Y_tr):
@@ -363,17 +382,20 @@ class FCemu:
         optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
         print(f'Initial learning rate: {optimizer.lr.numpy()}')
         self.NN.compile(optimizer=optimizer,
-                        loss={'ps_output': self.double_mse_loss(), 'xHI_output': 'mse',
+                        loss={
+                            # 'ps_output': self.double_mse_loss(),
+                            'xHI_output': 'mse',
                               # 'tau_output': 'mse',
-                              # 'Tb_output': 'mse',
-                              # 'Tk_output': 'mse',
-                              # 'Ts_output': 'mse',
+                              'Tb_output': 'mse',
+                              'Tk_output': 'mse',
+                              'Ts_output': 'mse',
                               # 'UVLFz4_output': 'mse',  'UVLFz5_output': 'mse',
                               # 'UVLFz6_output': 'mse', 'UVLFz7_output': 'mse', 'UVLFz8_output': 'mse',
                               # 'UVLFz9_output': 'mse',
                               # 'UVLFz10_output': 'mse'
                               },
-                        metrics={'ps_output': tf.keras.metrics.MeanAbsolutePercentageError(),
+                        metrics={
+                            # 'ps_output': tf.keras.metrics.MeanAbsolutePercentageError(),
                                  'xHI_output': tf.keras.metrics.RootMeanSquaredError(),
                                  # 'tau_output': tf.keras.metrics.MeanAbsoluteError()
                                  })
@@ -414,8 +436,8 @@ class FCemu:
         h5f.create_dataset('mean_dict', data=mean_list)
         h5f.create_dataset('std_dict', data=std_list)
         h5f.create_dataset('z_glob', data=self.z_glob)
-        h5f.create_dataset('z_PS', data=self.z_PS)
-        h5f.create_dataset('k_PS', data=self.k_PS)
+        # h5f.create_dataset('z_PS', data=self.z_PS)
+        # h5f.create_dataset('k_PS', data=self.k_PS)
         h5f.create_dataset('params_names', data=self.param_names)
         # h5f.create_dataset('tr_features_mean', data=self.ps_tr_mean)
         # h5f.create_dataset('tr_features_std', data=self.ps_tr_std)
@@ -425,7 +447,7 @@ class FCemu:
 
     def restore(self, dir_path, model_name):
         # custom_object = {'CustomLayer': CustomLayer}
-        custom_object = {"loss_func": self.ARE_loss(), 'CustomLayer': CustomLayer}
+        custom_object = {'TrainableGaussianSmoothing1D': TrainableGaussianSmoothing1D}
         self.NN = tf.keras.models.load_model(f'{dir_path}/{model_name}.h5', custom_objects=custom_object)
 
         # self.NN = tf.keras.models.load_model(f'{dir_path}/{model_name}.h5')
@@ -436,14 +458,19 @@ class FCemu:
         std_list = h5f['std_dict'][:]
         mean_list = h5f['mean_dict'][:]
 
-        self.output_names = ['ps', 'xHI', 'tau', 'Tb',
+        self.output_names = [
+                            # 'ps',
+                             'xHI',
+                             # 'tau',
+                             'Tb',
                              'Tk',
                              'Ts',
                              # 'UVLFz4', 'UVLFz5',
-                             'UVLFz6', 'UVLFz7',
-                             'UVLFz8',
+                             # 'UVLFz6', 'UVLFz7',
+                             # 'UVLFz8',
                              # 'UVLFz9',
-                             'UVLFz10']
+                             # 'UVLFz10'
+                            ]
         self.std_dict = {name: value for name, value in zip(self.output_names, std_list)}
         self.mean_dict = {name: value for name, value in zip(self.output_names, mean_list)}
 
@@ -510,3 +537,49 @@ class CustomLayer(tf.keras.layers.Layer):
             'units': self.units
         })
         return config
+
+
+import tensorflow as tf
+
+
+class TrainableGaussianSmoothing1D(tf.keras.layers.Layer):
+    def __init__(self, kernel_size=15, initial_sigma=1.0, **kwargs):
+        super(TrainableGaussianSmoothing1D, self).__init__(**kwargs)
+        self.kernel_size = kernel_size
+        self.initial_sigma = initial_sigma
+
+    def build(self, input_shape):
+        # We initialize sigma as a trainable weight
+        # We use a constraint to ensure sigma stays positive (avoiding division by zero)
+        self.sigma = self.add_weight(
+            name='sigma',
+            shape=(1,),
+            initializer=tf.keras.initializers.Constant(self.initial_sigma),
+            trainable=True,
+            constraint=lambda x: tf.clip_by_value(x, 0.1, 10.0)  # Keeps sigma in a safe range
+        )
+
+        self.channels = input_shape[-1]
+        super(TrainableGaussianSmoothing1D, self).build(input_shape)
+
+    def call(self, inputs):
+        # 1. Create the grid for the Gaussian
+        # Range from -(kernel_size-1)/2 to (kernel_size-1)/2
+        half_side = (self.kernel_size - 1) // 2
+        x = tf.cast(tf.range(-half_side, half_side + 1), dtype=tf.float32)
+
+        # 2. Calculate the Gaussian kernel based on the CURRENT trainable sigma
+        # Equation: G(x) = exp(-x^2 / (2 * sigma^2))
+        kernel = tf.exp(-tf.square(x) / (2 * tf.square(self.sigma)))
+        kernel = kernel / tf.reduce_sum(kernel)  # Normalize to sum to 1
+
+        # 3. Reshape kernel for conv1d: [filter_width, in_channels, out_channels]
+        # We tile it so the same learned blurring applies to all channels
+        kernel_reshaped = tf.reshape(kernel, [self.kernel_size, 1, 1])
+        kernel_final = tf.tile(kernel_reshaped, [1, self.channels, 1])
+
+        # 4. Apply convolution
+        return tf.nn.conv1d(inputs, kernel_final, stride=1, padding='SAME')
+
+# Usage in a model
+# model.add(TrainableGaussianSmoothing1D(kernel_size=21, initial_sigma=2.0))
