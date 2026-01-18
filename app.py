@@ -67,45 +67,80 @@ PARAM_DESCRIPTIONS = {
     'TAU_E': "Optical Depth ($\\tau_e$): The integrated electron scattering optical depth, a key cosmological constraint."
 }
 
+# Dictionary mapping parameter names to their LaTeX display labels
+PARAM_LABELS = {
+    'F_STAR10': r'$f_{*,10}$',
+    'ALPHA_STAR': r'$\alpha_*$',
+    't_STAR': r'$t_*$',
+    'F_ESC10': r'$f_{esc,10}$',
+    'ALPHA_ESC': r'$\alpha_{esc}$',
+    'M_TURN': r'$M_{turn}$',
+    'L_X': r'$L_X/SFR$',
+    'NU_X_THRESH': r'$E_0$',
+    'X_RAY_SPEC_INDEX': r'$\alpha_X$',
+    'R_MFP': r'$R_{mfp}$',
+    'TAU_E': r'$\tau_e$'
+}
+
 # --- 3. STYLING ---
 # --- CSS Styling (Space Background + Navigation Bar) ---
 page_bg_img = """
 <style>
 /* Define the main application background */
 [data-testid="stAppViewContainer"] {
-    background-color: black; /* Base color */
-    /* Load transparent star pattern */
+    background-color: black;
     background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
-    /* Repeat image to tile the screen */
     background-repeat: repeat;
-    color: white; /* Keep text white */
+    color: white;
 }
 
 [data-testid="stHeader"] {
     background-color: rgba(0,0,0,0);
 }
 
-/* (Optional) Header centering logic */
 h1, h2, h3 {
     text-align: center;
 }
 
-/* --- NAVIGATION BAR STYLING --- */
-/* Target the radio button container */
-[data-testid="stRadio"] > div {
-    display: flex;
-    justify-content: center; /* Center the buttons */
-    background-color: white; /* White background for the bar */
-    padding: 10px;
-    border-radius: 10px;
-    width: 100%;
+/* --- NAVIGATION BAR STYLING (FINAL ATTEMPT) --- */
+
+/* Force the container of the radio widget to be a flex container that centers its content */
+div.row-widget.stRadio {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
 }
 
-/* Target the text labels inside the radio buttons */
-[data-testid="stRadio"] p {
+/* Target the internal div that Streamlit uses to wrap the buttons */
+div.row-widget.stRadio > div[role="radiogroup"] {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    padding: 10px 30px !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: fit-content !important; /* Shrink to fit buttons */
+    margin: 0 auto !important;     /* Auto margins for centering */
+}
+
+/* Also attempt generic data-testid approach if class names change */
+[data-testid="stRadio"] > div {
+    display: flex !important;
+    width: fit-content !important;
+    margin: 0 auto !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    justify-content: center !important;
+}
+
+/* Style the text inside */
+[data-testid="stRadio"] label p {
     font-size: 18px !important;
-    font-weight: bold;
-    color: #007BFF !important; /* Blue Text */
+    color: white !important;
+    font-weight: bold !important;
 }
 </style>
 """
@@ -127,6 +162,10 @@ def load_emulator_system_v5(model_dir, name):
         return None
 
 # --- NAVIGATION ---
+
+# Global Header
+st.markdown("<h1 style='text-align: center; color: white; margin-bottom: -20px;'>The Global 21 cm Signal</h1>", unsafe_allow_html=True)
+
 # Updated list based on user request
 nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
 
@@ -177,7 +216,11 @@ if selected_page == "Home":
 
     # --- LOADER ---
     with st.spinner('Initializing Emulator System (New Model)...'):
-        emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
+        if 'emulator_loaded' not in st.session_state:
+            emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
+            st.session_state['emulator_loaded'] = emulator
+        else:
+            emulator = st.session_state['emulator_loaded']
 
     if emulator is None:
         st.error(f"System Error: Could not load emulator files from {MODEL_DIR}. Please check the files and try again.")
@@ -206,24 +249,24 @@ if selected_page == "Home":
 
     # Sliders
 
-    # צור פריסה: שמאל (פקדים) לוקח חלק 1, ימין (גרפים) לוקח 3 חלקים
+    # Create layout: Left (Controls) takes 1 part, Right (Graphs) takes 3 parts
     col_controls, col_graphs = st.columns([1, 3], gap="medium")
 
-    # --- צד שמאל: סליידרים ---
+    # --- Left Side: Sliders ---
     with col_controls:
         st.subheader("Parameters")
 
-        # כפתור איפוס
+        # Reset Button
         if st.button("Reset Parameters to Defaults"):
             for i in range(num_params):
                 default_val = (min_vals[i] + max_vals[i]) / 2.0
                 st.session_state[f"slider_{i}"] = float(default_val)
 
-        # לולאת הסליידרים - פשוטה יותר, בטור אחד
+        # Sliders Loop - Simpler, in a single column
         for i in range(num_params):
             p_name = param_names[i]
 
-            # (לוגיקת תיאור הסליידר נשארת אותו דבר...)
+            # (Slider description logic remains the same...)
             desc_key = p_name.strip()
             if desc_key not in PARAM_DESCRIPTIONS:
                 for key in PARAM_DESCRIPTIONS:
@@ -232,13 +275,15 @@ if selected_page == "Home":
                         break
             p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
 
+            display_label = PARAM_LABELS.get(desc_key, p_name)
+
             current_min = float(min_vals[i])
             current_max = float(max_vals[i])
             current_default = (current_min + current_max) / 2.0
 
-            # יצירת הסליידר (בלי העמודות הפנימיות)
+            # Create Slider (without inner columns)
             val = st.slider(
-                label=f"{p_name}",
+                label=display_label,
                 min_value=current_min,
                 max_value=current_max,
                 value=current_default,
@@ -247,9 +292,9 @@ if selected_page == "Home":
                 key=f"slider_{i}"
             )
             input_vector[i] = val
-    # --- צד ימין: גרפים ---
+    # --- Right Side: Graphs ---
     with col_graphs:
-        # כל הקוד של ה-Prediction וה-Plotting נכנס לכאן (פשוט תזיז אותו טאב אחד ימינה)
+        # All Prediction and Plotting code goes here
 
         # --- PREDICTION ---
         input_vector_batch = input_vector.reshape(1, -1)
@@ -287,7 +332,7 @@ if selected_page == "Home":
 
             Tcmb_data = 2.725 * (1 + x_axis)
 
-            fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(11, 16), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+            fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(11, 16), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
             # Plot 1: Tb
             ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
@@ -297,7 +342,7 @@ if selected_page == "Home":
             if np.min(Tb_data) < -200:
                  ax1.set_ylim(np.min(Tb_data)*1.1, 20)
             else:
-                 ax1.set_ylim(-200, 20)
+                 ax1.set_ylim(-250, 50)
 
             ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
             ax1.grid(True, which='both', linestyle='--', alpha=0.3)
@@ -322,7 +367,7 @@ if selected_page == "Home":
             ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
             ax3.legend(loc='lower right')
             ax3.set_xlim(5, 35)
-
+            ax3.set_ylim(0,10**3)
             for ax in [ax1, ax2, ax3]:
                 ax.set_xlabel('Redshift ($z$)', fontsize=12)
 
@@ -351,8 +396,90 @@ elif selected_page == "Cosmological Parameters":
 
 elif selected_page == "Relevant Degeneracies":
     st.title("Relevant Degeneracies")
-    st.write("This section will discuss the physical degeneracies between different parameters that affect the 21-cm signal.")
-    st.write("(e.g., Degeneracy between star formation efficiency and X-ray heating intensity during Cosmic Dawn)")
+
+    col_deg_controls, col_deg_plot = st.columns([1, 2])
+
+    with col_deg_controls:
+        st.subheader("Parameter Selection")
+        # Ensure emulator is loaded
+        if 'emulator_loaded' not in st.session_state:
+             emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
+             st.session_state['emulator_loaded'] = emulator
+        else:
+             emulator = st.session_state['emulator_loaded']
+
+        if emulator:
+            # Helper to find raw name from label key
+            # We assume PARAM_LABELS keys match segments of raw names if exact match fails, 
+            # but here we can try to use the raw names from the emulator directly if we can map them.
+            # Simpler approach: Use the keys from PARAM_LABELS for the dropdown, 
+            # and find the corresponding index in the emulator.
+            
+            # Create a reverse mapping or just list available options
+            param_options = list(PARAM_LABELS.keys())
+            
+            x_param_key = st.selectbox("Select X-Axis Parameter", param_options, index=0)
+            y_param_key = st.selectbox("Select Y-Axis Parameter", param_options, index=1)
+            
+            st.markdown("---")
+            st.subheader("Control Values")
+            
+            # Find indices in emulator
+            raw_names = [p.decode('utf-8') if isinstance(p, bytes) else str(p) for p in emulator.param_names]
+            
+            # Helper to find index by fuzzy matching the key
+            def get_param_index(key, names):
+                for idx, name in enumerate(names):
+                    if key in name: # Simple containment check
+                        return idx
+                return 0 # Default fallback
+            
+            x_idx = get_param_index(x_param_key, raw_names)
+            y_idx = get_param_index(y_param_key, raw_names)
+            
+            x_min, x_max = emulator.tr_params_min[x_idx], emulator.tr_params_max[x_idx]
+            y_min, y_max = emulator.tr_params_min[y_idx], emulator.tr_params_max[y_idx]
+
+            # Sliders
+            x_val = st.slider(f"{PARAM_LABELS[x_param_key]} Value", float(x_min), float(x_max), float((x_min+x_max)/2.0))
+            y_val = st.slider(f"{PARAM_LABELS[y_param_key]} Value", float(y_min), float(y_max), float((y_min+y_max)/2.0))
+
+            with col_deg_plot:
+                st.subheader("Likelihood Map")
+                
+                # Mock Probability Map (Gaussian)
+                xx = np.linspace(x_min, x_max, 100)
+                yy = np.linspace(y_min, y_max, 100)
+                X, Y = np.meshgrid(xx, yy)
+                
+                mu_x = (x_min + x_max) / 2
+                mu_y = (y_min + y_max) / 2
+                sigma_x = (x_max - x_min) / 5
+                sigma_y = (y_max - y_min) / 5
+                
+                Z = np.exp(-((X - mu_x)**2 / (2 * sigma_x**2) + (Y - mu_y)**2 / (2 * sigma_y**2)))
+                
+                fig, ax = plt.subplots(figsize=(6, 5))
+                
+                # Heatmap
+                im = ax.imshow(Z, extent=[x_min, x_max, y_min, y_max], origin='lower', cmap='viridis', aspect='auto')
+                plt.colorbar(im, ax=ax, label='Likelihood')
+                
+                # Current Position Marker
+                ax.scatter(x_val, y_val, color='red', s=100, edgecolors='white', label='Current Model', zorder=10)
+                
+                # Styling
+                ax.set_xlabel(PARAM_LABELS[x_param_key], fontsize=12)
+                ax.set_ylabel(PARAM_LABELS[y_param_key], fontsize=12)
+                ax.set_title(f"Correlation: {PARAM_LABELS[x_param_key]} vs {PARAM_LABELS[y_param_key]}", fontsize=14)
+                ax.legend()
+                ax.grid(True, linestyle='--', alpha=0.3)
+                
+                st.pyplot(fig)
+                
+                st.info("The background map currently shows a simulated Gaussian distribution. This will be replaced by real likelihood data.")
+        else:
+            st.error("Emulator not loaded.")
 
 elif selected_page == "About Us":
     st.title("About Us")
