@@ -63,8 +63,7 @@ PARAM_DESCRIPTIONS = {
     'X_RAY_SPEC_INDEX': "X-ray Spectral Index ($\\alpha_X$): The slope of the X-ray power-law spectrum. Harder spectra (lower values) penetrate deeper into the universe.",
 
     # Cosmology
-    'R_MFP': "Mean Free Path ($R_{mfp}$): The maximum distance ionizing photons can travel through the neutral gas.",
-    'TAU_E': "Optical Depth ($\\tau_e$): The integrated electron scattering optical depth, a key cosmological constraint."
+    # Parameters Mean Free Path and Optical Depth removed
 }
 
 # Dictionary mapping parameter names to their LaTeX display labels
@@ -77,13 +76,12 @@ PARAM_LABELS = {
     'M_TURN': r'$M_{turn}$',
     'L_X': r'$L_X/SFR$',
     'NU_X_THRESH': r'$E_0$',
-    'X_RAY_SPEC_INDEX': r'$\alpha_X$',
-    'R_MFP': r'$R_{mfp}$',
-    'TAU_E': r'$\tau_e$'
+    'X_RAY_SPEC_INDEX': r'$\alpha_X$'
 }
 
 # --- 3. STYLING ---
 # --- CSS Styling (Space Background + Navigation Bar) ---
+
 page_bg_img = """
 <style>
 /* Define the main application background */
@@ -105,14 +103,16 @@ h1, h2, h3 {
 /* --- NAVIGATION BAR STYLING (FINAL ATTEMPT) --- */
 
 /* Force the container of the radio widget to be a flex container that centers its content */
-div.row-widget.stRadio {
+[data-testid="stRadio"] {
     display: flex !important;
     justify-content: center !important;
+    align-items: center !important;
     width: 100% !important;
+    margin-top: 40px !important; /* Move the menu down */
 }
 
 /* Target the internal div that Streamlit uses to wrap the buttons */
-div.row-widget.stRadio > div[role="radiogroup"] {
+[data-testid="stRadio"] > div {
     background-color: rgba(255, 255, 255, 0.1) !important;
     padding: 10px 30px !important;
     border-radius: 20px !important;
@@ -126,21 +126,25 @@ div.row-widget.stRadio > div[role="radiogroup"] {
     margin: 0 auto !important;     /* Auto margins for centering */
 }
 
-/* Also attempt generic data-testid approach if class names change */
-[data-testid="stRadio"] > div {
-    display: flex !important;
-    width: fit-content !important;
-    margin: 0 auto !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    border-radius: 20px !important;
-    justify-content: center !important;
-}
-
 /* Style the text inside */
 [data-testid="stRadio"] label p {
     font-size: 18px !important;
     color: white !important;
     font-weight: bold !important;
+}
+
+/* --- COMPACT SLIDERS & BUTTONS --- */
+/* Reduce internal padding and margins for each individual slider widget */
+div[data-testid="stSlider"] {
+    padding-bottom: 0px !important;
+    padding-top: 0px !important;
+    margin-bottom: -15px !important;
+}
+
+/* Ensure the Reset button text stays on one line */
+div[data-testid="stButton"] button p {
+    white-space: nowrap !important;
+    font-size: 14px !important;
 }
 </style>
 """
@@ -164,7 +168,7 @@ def load_emulator_system_v5(model_dir, name):
 # --- NAVIGATION ---
 
 # Global Header
-st.markdown("<h1 style='text-align: center; color: white; margin-bottom: -20px;'>The Global 21 cm Signal</h1>", unsafe_allow_html=True)
+st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
 nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
@@ -182,16 +186,15 @@ st.markdown("---")
 
 if selected_page == "Home":
     
-    # Header
-    st.markdown("<h1 style='text-align: center;'>The Global 21 cm Signal </h1>", unsafe_allow_html=True)
-    st.markdown("<h3 style='text-align: center;'>Probing the Cosmic Dawn and Epoch of Reionization</h3>", unsafe_allow_html=True)
+    # Header (Removed the duplicate main title)
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: 500; margin-top: 10px; margin-bottom: 20px;'>Probing the Cosmic Dawn and Epoch of Reionization</div>", unsafe_allow_html=True)
 
     st.write("""
     The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
     This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
     """)
 
-    st.markdown("<h3 style='text-align: center;'>Theoretical Framework</h2>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
     st.write("""
     The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
     The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
@@ -242,7 +245,7 @@ if selected_page == "Home":
             param_names.append(str(p))
 
     # --- INTERACTIVE CONTROL ---
-    st.subheader("Interactive Parameter Exploration")
+    st.subheader("Interactive Parameter Exploration" , anchor=False)
 
     num_params = len(param_names)
     input_vector = np.zeros(num_params)
@@ -254,44 +257,59 @@ if selected_page == "Home":
 
     # --- Left Side: Sliders ---
     with col_controls:
-        st.subheader("Parameters")
+        # We put all controls in a container with a fixed height (~850px)
+        # to match the approximate height of the 3 graphs on the right side.
+        # This prevents the slider column from looking vastly different lengths on different screens,
+        # by simply adding an internal scrollbar if it exceeds the height.
+        with st.container(height=650):
+            # הוספת anchor=False מבטלת את סמל הקישור שמופיע מתחת לכותרת
+            st.subheader("Parameters", anchor=False)
 
-        # Reset Button
-        if st.button("Reset Parameters to Defaults"):
+            # Reset Button - קיצור הטקסט כדי לתפוס פחות מקום
+            if st.button("Reset Parameters"):
+                for i in range(num_params):
+                    default_val = (min_vals[i] + max_vals[i]) / 2.0
+                    st.session_state[f"slider_{i}"] = float(default_val)
+            # Sliders Loop - Simpler, in a single column
             for i in range(num_params):
-                default_val = (min_vals[i] + max_vals[i]) / 2.0
-                st.session_state[f"slider_{i}"] = float(default_val)
+                p_name = param_names[i]
+                
+                # Pre-calculate defaults since we might skip the UI render
+                current_min = float(min_vals[i])
+                current_max = float(max_vals[i])
+                current_default = (current_min + current_max) / 2.0
 
-        # Sliders Loop - Simpler, in a single column
-        for i in range(num_params):
-            p_name = param_names[i]
+                # Hide unused parameters but keep them in the input vector with default values
+                if p_name in ['R_MFP', 'TAU_E']:
+                    input_vector[i] = current_default
+                    continue
 
-            # (Slider description logic remains the same...)
-            desc_key = p_name.strip()
-            if desc_key not in PARAM_DESCRIPTIONS:
-                for key in PARAM_DESCRIPTIONS:
-                    if key in desc_key:
-                        desc_key = key
-                        break
-            p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
+                # (Slider description logic remains the same...)
+                desc_key = p_name.strip()
+                if desc_key not in PARAM_DESCRIPTIONS:
+                    for key in PARAM_DESCRIPTIONS:
+                        if key in desc_key:
+                            desc_key = key
+                            break
+                p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
 
-            display_label = PARAM_LABELS.get(desc_key, p_name)
+                display_label = PARAM_LABELS.get(desc_key, p_name)
 
-            current_min = float(min_vals[i])
-            current_max = float(max_vals[i])
-            current_default = (current_min + current_max) / 2.0
+                # Initialize session state for this slider if it doesn't exist
+                # This prevents Streamlit from warning about value conflicts
+                if f"slider_{i}" not in st.session_state:
+                    st.session_state[f"slider_{i}"] = float(current_default)
 
-            # Create Slider (without inner columns)
-            val = st.slider(
-                label=display_label,
-                min_value=current_min,
-                max_value=current_max,
-                value=current_default,
-                step=(current_max - current_min) / 100.0,
-                help=p_desc,
-                key=f"slider_{i}"
-            )
-            input_vector[i] = val
+                # Create Slider (without explicit value= parameter)
+                val = st.slider(
+                    label=display_label,
+                    min_value=current_min,
+                    max_value=current_max,
+                    step=(current_max - current_min) / 100.0,
+                    help=p_desc,
+                    key=f"slider_{i}"
+                )
+                input_vector[i] = val
     # --- Right Side: Graphs ---
     with col_graphs:
         # All Prediction and Plotting code goes here
@@ -305,7 +323,7 @@ if selected_page == "Home":
             st.stop()
 
         # --- PLOTTING ---
-        st.subheader(f"Global Signal Prediction")
+        st.subheader("Global Signal Prediction", anchor=False)
 
         # New Model Indices (Verified)
         xHI_index = 0
@@ -332,67 +350,179 @@ if selected_page == "Home":
 
             Tcmb_data = 2.725 * (1 + x_axis)
 
-            fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(11, 16), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+            # Wrap plots in a container to maintain a consistent height, matching the left column
+            with st.container(height=590):
+                # Reduced figsize height from 16 to 11 to help it fit on smaller screens without too much scrolling
+                fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
-            # Plot 1: Tb
-            ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
-            ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
-            ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
-            ax1.set_xlim(5, 35) # Standard Range
-            if np.min(Tb_data) < -200:
-                 ax1.set_ylim(np.min(Tb_data)*1.1, 20)
-            else:
-                 ax1.set_ylim(-250, 50)
+                # Plot 1: Tb
+                ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+                ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
+                ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
+                ax1.set_xlim(5, 35) # Standard Range
+                if np.min(Tb_data) < -200:
+                     ax1.set_ylim(np.min(Tb_data)*1.1, 20)
+                else:
+                     ax1.set_ylim(-250, 50)
 
-            ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-            ax1.grid(True, which='both', linestyle='--', alpha=0.3)
-            ax1.legend(loc='lower right')
+                ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+                ax1.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax1.legend(loc='lower right')
 
-            # Plot 2: xHI
-            ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
-            ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
-            ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
-            ax2.set_ylim(-0.1, 1.1)
-            ax2.set_xlim(5, 35)
-            ax2.grid(True, which='both', linestyle='--', alpha=0.3)
-            ax2.legend(loc='lower right')
+                # Plot 2: xHI
+                ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
+                ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
+                ax2.set_ylim(-0.1, 1.1)
+                ax2.set_xlim(5, 35)
+                ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax2.legend(loc='lower right')
 
-            # Plot 3: Thermal History
-            ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-            ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-            ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+                # Plot 3: Thermal History
+                ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+                ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+                ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
-            ax3.set_ylabel('Temperature [K]', fontsize=12)
-            ax3.set_title("Thermal History", fontsize=14, color='white')
-            ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
-            ax3.legend(loc='lower right')
-            ax3.set_xlim(5, 35)
-            ax3.set_ylim(0,10**3)
-            for ax in [ax1, ax2, ax3]:
-                ax.set_xlabel('Redshift ($z$)', fontsize=12)
+                ax3.set_ylabel('Temperature [K]', fontsize=12)
+                ax3.set_title("Thermal History", fontsize=14, color='white')
+                ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+                ax3.legend(loc='lower right')
+                ax3.set_xlim(5, 35)
+                ax3.set_ylim(0,10**3)
+                for ax in [ax1, ax2, ax3]:
+                    ax.set_xlabel('Redshift ($z$)', fontsize=12)
 
-            # Dark Theme Styling
-            fig.patch.set_alpha(0.0)
-            for ax in [ax1, ax2, ax3]:
-                ax.set_facecolor((0, 0, 0, 0.2))
-                ax.tick_params(colors='white')
-                ax.xaxis.label.set_color('white')
-                ax.yaxis.label.set_color('white')
-                ax.title.set_color('white')
-                for spine in ax.spines.values():
-                    spine.set_color('white')
+                # Dark Theme Styling
+                fig.patch.set_alpha(0.0)
+                for ax in [ax1, ax2, ax3]:
+                    ax.set_facecolor((0, 0, 0, 0.2))
+                    ax.tick_params(colors='white')
+                    ax.xaxis.label.set_color('white')
+                    ax.yaxis.label.set_color('white')
+                    ax.title.set_color('white')
+                    for spine in ax.spines.values():
+                        spine.set_color('white')
 
-            plt.subplots_adjust(hspace=0.35)
-            st.pyplot(fig)
+                plt.subplots_adjust(hspace=0.35)
+                st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
 
 elif selected_page == "Cosmological Parameters":
-    st.title("Cosmological Parameters")
-    st.write("Parameters currently used by the emulator:")
-    # Display the list dynamically if possible, or just the dict keys
-    for key, val in PARAM_DESCRIPTIONS.items():
-        st.write(f"**{key}**: {val}")
+    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold;'>Cosmological Parameters</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; font-size: 1.2rem; margin-top: 10px; margin-bottom: 40px; color: #a9a9a9;'>Physical constants and variables driving the emulator</div>", unsafe_allow_html=True)
+
+    # Group parameters by scientific category to create rows
+    param_groups = {
+        "Star Formation": {
+            "keys": ['F_STAR10', 'ALPHA_STAR', 't_STAR']
+        },
+        "Reionization": {
+            "keys": ['F_ESC10', 'ALPHA_ESC', 'M_TURN']
+        },
+        "Heating (X-rays)": {
+            "keys": ['L_X', 'NU_X_THRESH', 'X_RAY_SPEC_INDEX']
+        }
+    }
+    
+    # The 3 chosen colors: Blue, Green, Purple
+    card_colors = [
+        'rgba(30, 64, 175, 0.4)',  # Indigo/Blue
+        'rgba(6, 95, 70, 0.4)',    # Emerald/Green
+        'rgba(76, 29, 149, 0.4)',  # Deep Purple
+    ]
+    
+    # CSS for the custom HTML cards
+    st.markdown("""
+    <style>
+    .param-card {
+        padding: 20px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        border: 1px solid rgba(255,255,255,0.1);
+        height: 250px; /* Fixed height so all boxes are exactly the same size */
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        overflow: hidden; /* Prevent text spilling if it's too long */
+    }
+    .param-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.4);
+    }
+    .param-card-title {
+        font-size: 1.35rem;
+        font-weight: bold;
+        margin-bottom: 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.2);
+        padding-bottom: 10px;
+        color: white;
+    }
+    .param-card-desc {
+        font-size: 0.95rem; /* Slightly smaller text to ensure it fits perfectly */
+        color: #e5e7eb;
+        line-height: 1.5;
+    }
+    .category-header {
+        font-size: 1.8rem;
+        font-weight: 600;
+        color: white;
+        margin-top: 30px;
+        margin-bottom: 15px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid rgba(255,255,255,0.3);
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Map LaTeX to HTML
+    latex_to_html = {
+        r"$f_{*,10}$": "<i>f</i><sub>*,10</sub>",
+        r"$\alpha_*$": "&alpha;<sub>*</sub>",
+        r"$t_*$": "<i>t</i><sub>*</sub>",
+        r"$f_{esc,10}$": "<i>f</i><sub>esc,10</sub>",
+        r"$\alpha_{esc}$": "&alpha;<sub>esc</sub>",
+        r"$M_{turn}$": "<i>M</i><sub>turn</sub>",
+        r"$L_X/SFR$": "<i>L<sub>X</sub></i> / SFR",
+        r"$E_0$": "<i>E</i><sub>0</sub>",
+        r"$\alpha_X$": "&alpha;<sub>X</sub>",
+        r"$10^{10} M_{\odot}$": "10<sup>10</sup> M<sub>&#8857;</sub>"
+    }
+
+    # Iterate over the 3 categories to build 3 separate rows
+    for row_idx, (category_name, group_info) in enumerate(param_groups.items()):
+        st.markdown(f"<div class='category-header'>{category_name}</div>", unsafe_allow_html=True)
+        cols = st.columns(3, gap="medium")
+        
+        for col_idx, key in enumerate(group_info["keys"]):
+            if key not in PARAM_DESCRIPTIONS:
+                continue
+                
+            val = PARAM_DESCRIPTIONS[key]
+            
+            # Translate LaTeX
+            for tex, html in latex_to_html.items():
+                val = val.replace(tex, html)
+                
+            # Split title and description
+            if ": " in val:
+                title, desc = val.split(": ", 1)
+            else:
+                title, desc = key, val
+            
+            # Stagger the colors across columns and rows dynamically
+            # Row 0 starts at color 0 (Blue, Green, Purple)
+            # Row 1 starts at color 2 (Purple, Blue, Green) 
+            # Row 2 starts at color 1 (Green, Purple, Blue)
+            color_offset = (row_idx * 2) % 3
+            bg_color = card_colors[(col_idx + color_offset) % 3]
+                
+            with cols[col_idx]:
+                st.markdown(f"""
+                <div class="param-card" style="background-color: {bg_color};">
+                    <div class="param-card-title">{title}</div>
+                    <div class="param-card-desc">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
 elif selected_page == "Relevant Degeneracies":
     st.title("Relevant Degeneracies")
@@ -400,7 +530,7 @@ elif selected_page == "Relevant Degeneracies":
     col_deg_controls, col_deg_plot = st.columns([1, 2])
 
     with col_deg_controls:
-        st.subheader("Parameter Selection")
+        st.subheader("Parameter Selection" , anchor=False)
         # Ensure emulator is loaded
         if 'emulator_loaded' not in st.session_state:
              emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
@@ -422,7 +552,7 @@ elif selected_page == "Relevant Degeneracies":
             y_param_key = st.selectbox("Select Y-Axis Parameter", param_options, index=1)
             
             st.markdown("---")
-            st.subheader("Control Values")
+            st.subheader("Control Values" , anchor=False)
             
             # Find indices in emulator
             raw_names = [p.decode('utf-8') if isinstance(p, bytes) else str(p) for p in emulator.param_names]
@@ -445,7 +575,7 @@ elif selected_page == "Relevant Degeneracies":
             y_val = st.slider(f"{PARAM_LABELS[y_param_key]} Value", float(y_min), float(y_max), float((y_min+y_max)/2.0))
 
             with col_deg_plot:
-                st.subheader("Likelihood Map")
+                st.subheader("Likelihood Map", anchor=False)
                 
                 # Mock Probability Map (Gaussian)
                 xx = np.linspace(x_min, x_max, 100)
