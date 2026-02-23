@@ -3,7 +3,7 @@ import h5py
 import numpy as np
 import tensorflow as tf
 from scipy.interpolate import splrep, splev, RegularGridInterpolator
-from tensorflow import keras
+import tf_keras as keras
 from scipy.ndimage import gaussian_filter1d
 # LR_PATH = '/Users/hovavlazare/GITs/FDMemu/fusion_model/data/lr.npy'
 # LR = np.load(LR_PATH)
@@ -27,11 +27,11 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
         if not hasattr(self.model.optimizer, "lr"):
             raise ValueError('Optimizer must have a "lr" attribute.')
         # Get the current learning rate from model's optimizer.
-        lr = float(tf.keras.backend.get_value(self.model.optimizer.learning_rate))
+        lr = float(keras.backend.get_value(self.model.optimizer.learning_rate))
         # Call schedule function to get the scheduled learning rate.
         scheduled_lr = self.schedule(epoch)
         # Set the value back to the optimizer before this epoch starts
-        tf.keras.backend.set_value(self.model.optimizer.lr, scheduled_lr)
+        keras.backend.set_value(self.model.optimizer.lr, scheduled_lr)
         print("\nEpoch %03d: Learning rate is %1.9f." % (epoch, scheduled_lr))
 
 #
@@ -40,39 +40,39 @@ class CustomLearningRateScheduler(keras.callbacks.Callback):
 
 
 def create_model(input_dim, hidden_dims, FC_layer_size, out_dim, activation, name, use_BatchNorm=False):
-    input_layer = tf.keras.Input(shape=(input_dim,))
-    next_layer = tf.keras.layers.Dense(FC_layer_size, activation=activation)(input_layer)
+    input_layer = keras.Input(shape=(input_dim,))
+    next_layer = keras.layers.Dense(FC_layer_size, activation=activation)(input_layer)
     for dim in range(hidden_dims - 1):
-        next_layer = tf.keras.layers.Dense(FC_layer_size, activation=activation)(next_layer)
-    last_common_layer = tf.keras.layers.Dense(out_dim, activation=activation)(next_layer)
+        next_layer = keras.layers.Dense(FC_layer_size, activation=activation)(next_layer)
+    last_common_layer = keras.layers.Dense(out_dim, activation=activation)(next_layer)
 
     # ps_output = build_cnn(last_common_layer, activation=activation)
 
     xHI_output = build_FC_nn(last_common_layer, activation=activation, out_dim=92, name='xHI')
 
-    xHI_output = tf.keras.layers.Reshape((92, 1))(xHI_output)
+    xHI_output = keras.layers.Reshape((92, 1))(xHI_output)
     xHI_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_xHI")(xHI_output)
-    xHI_output = tf.keras.layers.Flatten(name='xHI_output')(xHI_output_smoothed)
+    xHI_output = keras.layers.Flatten(name='xHI_output')(xHI_output_smoothed)
     # tau_output = build_FC_nn(last_common_layer, out_dim=1, name='tau', activation=activation)
     #
     Tb_output = build_FC_nn(last_common_layer, out_dim=92, name='Tb', activation=activation)
 
-    Tb_output = tf.keras.layers.Reshape((92, 1))(Tb_output)
+    Tb_output = keras.layers.Reshape((92, 1))(Tb_output)
     Tb_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Tb")(Tb_output)
-    Tb_output = tf.keras.layers.Flatten(name='Tb_output')(Tb_output_smoothed)
+    Tb_output = keras.layers.Flatten(name='Tb_output')(Tb_output_smoothed)
     #
     Tk_output = build_FC_nn(last_common_layer, out_dim=92, name='Tk', activation=activation)
 
-    Tk_output = tf.keras.layers.Reshape((92, 1))(Tk_output)
+    Tk_output = keras.layers.Reshape((92, 1))(Tk_output)
     Tk_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Tk")(Tk_output)
-    Tk_output = tf.keras.layers.Flatten(name='Tk_output')(Tk_output_smoothed)
+    Tk_output = keras.layers.Flatten(name='Tk_output')(Tk_output_smoothed)
     #
     Ts_output = build_FC_nn(last_common_layer, FC_layer_size=400, out_dim=92, name='Ts',
                             activation=activation)  # , activation='linear', use_custom_act=True)
 
-    Ts_output = tf.keras.layers.Reshape((92, 1))(Ts_output)
+    Ts_output = keras.layers.Reshape((92, 1))(Ts_output)
     Ts_output_smoothed = TrainableGaussianSmoothing1D(name="trainable_smoothing_Ts")(Ts_output)
-    Ts_output = tf.keras.layers.Flatten(name='Ts_output')(Ts_output_smoothed)
+    Ts_output = keras.layers.Flatten(name='Ts_output')(Ts_output_smoothed)
 
     # UVLF_common = build_FC_nn(last_common_layer, out_dim=256, name='UVLF_common')
     #
@@ -90,7 +90,7 @@ def create_model(input_dim, hidden_dims, FC_layer_size, out_dim, activation, nam
     #
     # UVLF_z10 = build_FC_nn(UVLF_common, out_dim=50, FC_layer_size=100, name='UVLFz10', activation=activation)
 
-    demo_model = tf.keras.Model(input_layer, outputs=[
+    demo_model = keras.Model(input_layer, outputs=[
                                                       # ps_output,
                                                       xHI_output,
                                                       # tau_output,
@@ -119,17 +119,17 @@ def interp_LF_at_z(LF, Muv_bins):
 
 def build_FC_nn(input_layer, out_dim, name, hidden_dims=4, FC_layer_size=256, activation='LeakyReLU',
                 use_custom_act=False):
-    next_layer = tf.keras.layers.Dense(FC_layer_size, activation=activation)(input_layer)
+    next_layer = keras.layers.Dense(FC_layer_size, activation=activation)(input_layer)
     for dim in range(hidden_dims - 1):
-        next_layer = tf.keras.layers.Dense(FC_layer_size, activation=activation)(next_layer)
+        next_layer = keras.layers.Dense(FC_layer_size, activation=activation)(next_layer)
         if use_custom_act:
             assert activation == 'linear', 'if you wish to use custom activation please set activation to linear'
             next_layer = CustomLayer(units=FC_layer_size, trainable=True)(next_layer)
 
     if name != 'UVLF_common':
-        output_layer = tf.keras.layers.Dense(out_dim, activation='linear', name=name)(next_layer)
+        output_layer = keras.layers.Dense(out_dim, activation='linear', name=name)(next_layer)
     else:
-        output_layer = tf.keras.layers.Dense(out_dim, activation=activation, name=name)(next_layer)
+        output_layer = keras.layers.Dense(out_dim, activation=activation, name=name)(next_layer)
     return output_layer
 
 
@@ -140,71 +140,71 @@ def build_cnn(input_layer, activation='LeakyReLU'):
     :return: output with the correct size (k X z)
     """
 
-    d2_input = tf.keras.layers.Reshape((1, 1, 1024))(input_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(256, (4, 2), activation=activation)(d2_input)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(256, (7, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(256, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(128, (7, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(128, (7, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(64, (3, 1), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(64, (5, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(32, (7, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(32, (7, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.UpSampling2D()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(8, (5, 1), activation=activation)(
+    d2_input = keras.layers.Reshape((1, 1, 1024))(input_layer)
+    next_layer = keras.layers.Conv2DTranspose(256, (4, 2), activation=activation)(d2_input)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(256, (7, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(256, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(128, (7, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(128, (7, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(64, (3, 1), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(64, (5, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(32, (7, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(32, (7, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.UpSampling2D()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(8, (5, 1), activation=activation)(
         next_layer)  # turn the 5 here into 3 if you want 60X12
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.Conv2DTranspose(8, (9, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    next_layer = tf.keras.layers.UpSampling2D(size=(2, 1))(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.Conv2DTranspose(8, (9, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    next_layer = keras.layers.UpSampling2D(size=(2, 1))(next_layer)
 
-    next_layer = tf.keras.layers.Conv2DTranspose(8, (9, 3), activation=activation, padding='same')(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization()(next_layer)
-    output = tf.keras.layers.Conv2DTranspose(1, (11, 3), activation=activation, padding='same', name='ps_output')(
+    next_layer = keras.layers.Conv2DTranspose(8, (9, 3), activation=activation, padding='same')(next_layer)
+    # next_layer = keras.layers.BatchNormalization()(next_layer)
+    output = keras.layers.Conv2DTranspose(1, (11, 3), activation=activation, padding='same', name='ps_output')(
         next_layer)
 
     # d2_input = tf.reshape(input_layer, (-1, 1, 1, 1024))
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(d2_input)
-    # next_layer = tf.keras.layers.Conv2DTranspose(512, (2, 2), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2DTranspose(256, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2DTranspose(128, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(d2_input)
+    # next_layer = keras.layers.Conv2DTranspose(512, (2, 2), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(256, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(128, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
     #
-    # next_layer = tf.keras.layers.Conv2DTranspose(64, (2, 2),strides=(2,2), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2DTranspose(32, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(64, (2, 2),strides=(2,2), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(32, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
     #
-    # next_layer = tf.keras.layers.Conv2DTranspose(16, (2, 2),strides=(2,2), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2DTranspose(8, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(16, (2, 2),strides=(2,2), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(8, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
     #
-    # next_layer = tf.keras.layers.Conv2DTranspose(4, (2, 2),strides=(2,2), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # next_layer = tf.keras.layers.Conv2DTranspose(2, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(4, (2, 2),strides=(2,2), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2D(1, (3, 3), padding='same', activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(2, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
     #
-    # next_layer = tf.keras.layers.Conv2DTranspose(1, (3, 3), activation=activation)(next_layer)
-    # next_layer = tf.keras.layers.BatchNormalization(trainable=True)(next_layer)
-    # output = tf.keras.layers.Conv2D(1, (3, 3), padding='same', activation='linear', name='ps_output')(next_layer)
+    # next_layer = keras.layers.Conv2DTranspose(1, (3, 3), activation=activation)(next_layer)
+    # next_layer = keras.layers.BatchNormalization(trainable=True)(next_layer)
+    # output = keras.layers.Conv2D(1, (3, 3), padding='same', activation='linear', name='ps_output')(next_layer)
 
     return output
 
@@ -342,13 +342,13 @@ class FCemu:
                 """
 
         def loss_func(y_true, y_pred):
-            return tf.keras.losses.MeanAbsolutePercentageError()(y_true, y_pred) / 100
+            return keras.losses.MeanAbsolutePercentageError()(y_true, y_pred) / 100
 
         return loss_func
 
     def double_mse_loss(self):
         def loss_func(y_true, y_pred):
-            return 2 * tf.keras.losses.MeanSquaredError()(y_true, y_pred)
+            return 2 * keras.losses.MeanSquaredError()(y_true, y_pred)
 
         return loss_func
 
@@ -370,16 +370,16 @@ class FCemu:
         X_val = self.preprocess_params(X_val)
         Y_val = self.preprocess_features(Y_val)
 
-        early_stopping_cb = tf.keras.callbacks.EarlyStopping(
+        early_stopping_cb = keras.callbacks.EarlyStopping(
             monitor="val_loss", patience=stop_patience_value, min_delta=1e-10, restore_best_weights=True, verbose=1
         )
-        reduce_lr_cb = tf.keras.callbacks.ReduceLROnPlateau(
+        reduce_lr_cb = keras.callbacks.ReduceLROnPlateau(
             monitor="val_loss", patience=decay_patience_value, factor=reduce_lr_factor,
             verbose=1, min_delta=5e-9, min_lr=1e-7)
 
         callbacks = [early_stopping_cb, reduce_lr_cb] #, CustomLearningRateScheduler(py21cmEMU_schedule)]
 
-        optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate)
+        optimizer = keras.optimizers.Adam(learning_rate=self.learning_rate)
         print(f'Initial learning rate: {optimizer.lr.numpy()}')
         self.NN.compile(optimizer=optimizer,
                         loss={
@@ -395,9 +395,9 @@ class FCemu:
                               # 'UVLFz10_output': 'mse'
                               },
                         metrics={
-                            # 'ps_output': tf.keras.metrics.MeanAbsolutePercentageError(),
-                                 'xHI_output': tf.keras.metrics.RootMeanSquaredError(),
-                                 # 'tau_output': tf.keras.metrics.MeanAbsoluteError()
+                            # 'ps_output': keras.metrics.MeanAbsolutePercentageError(),
+                                 'xHI_output': keras.metrics.RootMeanSquaredError(),
+                                 # 'tau_output': keras.metrics.MeanAbsoluteError()
                                  })
         history = self.NN.fit(x=X_train,
                               y=Y_train,
@@ -448,9 +448,9 @@ class FCemu:
     def restore(self, dir_path, model_name):
         # custom_object = {'CustomLayer': CustomLayer}
         custom_object = {'TrainableGaussianSmoothing1D': TrainableGaussianSmoothing1D}
-        self.NN = tf.keras.models.load_model(f'{dir_path}/{model_name}.h5', custom_objects=custom_object)
+        self.NN = keras.models.load_model(f'{dir_path}/{model_name}.h5', custom_objects=custom_object)
 
-        # self.NN = tf.keras.models.load_model(f'{dir_path}/{model_name}.h5')
+        # self.NN = keras.models.load_model(f'{dir_path}/{model_name}.h5')
         h5f = h5py.File(f'{dir_path}/model_data.h5', 'r')
         self.tr_params_min = h5f['tr_params_min'][:]
         self.tr_params_max = h5f['tr_params_max'][:]
@@ -495,15 +495,15 @@ class FCemu:
 
 # create_model(9, 3, 512, 1024, 'relu', 'demo_model')
 
-# input = tf.keras.Input(shape=(1,1,512), name="img")
-# next_layer = tf.keras.layers.Conv2DTranspose(256, 2, activation="relu")(input)
-# output = tf.keras.layers.Conv2DTranspose(128, (2,3), activation="relu")(next_layer)
+# input = keras.Input(shape=(1,1,512), name="img")
+# next_layer = keras.layers.Conv2DTranspose(256, 2, activation="relu")(input)
+# output = keras.layers.Conv2DTranspose(128, (2,3), activation="relu")(next_layer)
 #
-# demo_model = tf.keras.Model(input, output, name="my_model")
+# demo_model = keras.Model(input, output, name="my_model")
 # demo_model.summary()
 
 
-class CustomLayer(tf.keras.layers.Layer):
+class CustomLayer(keras.layers.Layer):
 
     def __init__(self, alpha=None,
                  units=512,
@@ -515,7 +515,7 @@ class CustomLayer(tf.keras.layers.Layer):
         self.alpha = alpha
 
     def build(self, input_shape):
-        alpha_init = tf.keras.initializers.GlorotNormal()
+        alpha_init = keras.initializers.GlorotNormal()
         self.alpha = tf.Variable(
             dtype=tf.float32,
             initial_value=alpha_init(shape=(self.units,)),
@@ -525,7 +525,7 @@ class CustomLayer(tf.keras.layers.Layer):
 
     def call(self, inputs):
         elem1 = tf.subtract(1.0, self.alpha)
-        elem2 = tf.keras.activations.sigmoid(inputs)
+        elem2 = keras.activations.sigmoid(inputs)
         ptrs = tf.add(self.alpha, tf.math.multiply(elem1, elem2))
         return tf.math.multiply(inputs, ptrs)
 
@@ -542,7 +542,7 @@ class CustomLayer(tf.keras.layers.Layer):
 import tensorflow as tf
 
 
-class TrainableGaussianSmoothing1D(tf.keras.layers.Layer):
+class TrainableGaussianSmoothing1D(keras.layers.Layer):
     def __init__(self, kernel_size=15, initial_sigma=1.0, **kwargs):
         super(TrainableGaussianSmoothing1D, self).__init__(**kwargs)
         self.kernel_size = kernel_size
@@ -554,7 +554,7 @@ class TrainableGaussianSmoothing1D(tf.keras.layers.Layer):
         self.sigma = self.add_weight(
             name='sigma',
             shape=(1,),
-            initializer=tf.keras.initializers.Constant(self.initial_sigma),
+            initializer=keras.initializers.Constant(self.initial_sigma),
             trainable=True,
             constraint=lambda x: tf.clip_by_value(x, 0.1, 10.0)  # Keeps sigma in a safe range
         )
