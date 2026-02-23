@@ -531,96 +531,13 @@ elif selected_page == "Cosmological Parameters":
 
 elif selected_page == "Relevant Degeneracies":
     st.title("Relevant Degeneracies")
-
-    col_deg_controls, col_deg_plot = st.columns([1, 2])
-
-    with col_deg_controls:
-        st.subheader("Parameter Selection" , anchor=False)
-        # Ensure emulator is loaded
-        if 'emulator_loaded' not in st.session_state:
-             emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
-             st.session_state['emulator_loaded'] = emulator
-        else:
-             emulator = st.session_state['emulator_loaded']
-
-        if emulator:
-            # Helper to find raw name from label key
-            # We assume PARAM_LABELS keys match segments of raw names if exact match fails, 
-            # but here we can try to use the raw names from the emulator directly if we can map them.
-            # Simpler approach: Use the keys from PARAM_LABELS for the dropdown, 
-            # and find the corresponding index in the emulator.
-            
-            # Create a reverse mapping or just list available options
-            param_options = list(PARAM_LABELS.keys())
-            
-            x_param_key = st.selectbox("Select X-Axis Parameter", param_options, index=0)
-            y_param_key = st.selectbox("Select Y-Axis Parameter", param_options, index=1)
-            
-            st.markdown("---")
-            st.subheader("Control Values" , anchor=False)
-            
-            # Find indices in emulator
-            raw_names = [p.decode('utf-8') if isinstance(p, bytes) else str(p) for p in emulator.param_names]
-            
-            # Helper to find index by fuzzy matching the key
-            def get_param_index(key, names):
-                for idx, name in enumerate(names):
-                    if key in name: # Simple containment check
-                        return idx
-                return 0 # Default fallback
-            
-            x_idx = get_param_index(x_param_key, raw_names)
-            y_idx = get_param_index(y_param_key, raw_names)
-            
-            x_min, x_max = emulator.tr_params_min[x_idx], emulator.tr_params_max[x_idx]
-            y_min, y_max = emulator.tr_params_min[y_idx], emulator.tr_params_max[y_idx]
-
-            # Sliders
-            x_val = st.slider(f"{PARAM_LABELS[x_param_key]} Value", float(x_min), float(x_max), float((x_min+x_max)/2.0))
-            y_val = st.slider(f"{PARAM_LABELS[y_param_key]} Value", float(y_min), float(y_max), float((y_min+y_max)/2.0))
-
-            with col_deg_plot:
-                st.subheader("Likelihood Map", anchor=False)
-                
-                # Mock Probability Map (Gaussian)
-                xx = np.linspace(x_min, x_max, 100)
-                yy = np.linspace(y_min, y_max, 100)
-                X, Y = np.meshgrid(xx, yy)
-                
-                mu_x = (x_min + x_max) / 2
-                mu_y = (y_min + y_max) / 2
-                sigma_x = (x_max - x_min) / 5
-                sigma_y = (y_max - y_min) / 5
-                
-                Z = np.exp(-((X - mu_x)**2 / (2 * sigma_x**2) + (Y - mu_y)**2 / (2 * sigma_y**2)))
-                
-                fig, ax = plt.subplots(figsize=(6, 5))
-                
-                # Heatmap
-                im = ax.imshow(Z, extent=[x_min, x_max, y_min, y_max], origin='lower', cmap='viridis', aspect='auto')
-                plt.colorbar(im, ax=ax, label='Likelihood')
-                
-                # Current Position Marker
-                ax.scatter(x_val, y_val, color='red', s=100, edgecolors='white', label='Current Model', zorder=10)
-                
-                # Styling
-                ax.set_xlabel(PARAM_LABELS[x_param_key], fontsize=12)
-                ax.set_ylabel(PARAM_LABELS[y_param_key], fontsize=12)
-                ax.set_title(f"Correlation: {PARAM_LABELS[x_param_key]} vs {PARAM_LABELS[y_param_key]}", fontsize=14)
-                ax.legend()
-                ax.grid(True, linestyle='--', alpha=0.3)
-                
-                st.pyplot(fig)
-                
-                st.info("The background map currently shows a simulated Gaussian distribution. This will be replaced by real likelihood data.")
-        else:
-            st.error("Emulator not loaded.")
+    st.warning("Under Construction - Coming Soon!!!!!!!!!!!! dont!")
 
 elif selected_page == "About Us":
     st.title("About Us")
-    st.write("We are a research team dedicated to exploring the Epoch of Reionization.")
+    st.warning("Under Construction - Coming Soon!!!!!!!!!!!! you! ")
 
 elif selected_page == "Credits":
     st.title("Credits & Acknowledgements")
-    st.write("Special thanks to our supervisor and the open-source community.")
-    st.write("Powered by Streamlit, TensorFlow, and Python.")
+    st.warning("Under Construction - Coming Soon!!!!!!!!!!!!! dare! ")
+
