@@ -100,30 +100,38 @@ h1, h2, h3 {
     text-align: center;
 }
 
-/* --- NAVIGATION BAR STYLING (FINAL ATTEMPT) --- */
+/* --- NAVIGATION BAR STYLING (CENTERING FIX) --- */
 
-/* Force the container of the radio widget to be a flex container that centers its content */
+/* Ensure the outermost wrapper is always centered, adapting to any screen size */
+div[data-testid="stElementContainer"]:has([data-testid="stRadio"]) {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+}
+
+/* Center the main container of the radio widget */
 [data-testid="stRadio"] {
     display: flex !important;
     justify-content: center !important;
     align-items: center !important;
     width: 100% !important;
-    margin-top: 40px !important; /* Move the menu down */
+    margin-top: 40px !important;
 }
 
-/* Target the internal div that Streamlit uses to wrap the buttons */
+/* Form the actual styling of the menu background itself */
 [data-testid="stRadio"] > div {
     background-color: rgba(255, 255, 255, 0.1) !important;
     padding: 10px 30px !important;
     border-radius: 20px !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     
-    display: flex !important;
+    display: inline-flex !important;
     flex-direction: row !important;
     align-items: center !important;
     justify-content: center !important;
-    width: fit-content !important; /* Shrink to fit buttons */
-    margin: 0 auto !important;     /* Auto margins for centering */
+    width: max-content !important; 
+    margin: 0 auto !important;
+    flex-wrap: wrap !important; /* Prevents breaking on very small screens */
 }
 
 /* Style the text inside */
@@ -356,9 +364,8 @@ if selected_page == "Home":
                 fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
                 # Plot 1: Tb
-                ax1.plot(x_axis, Tb_data, color='#00ff00', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
-                ax1.set_ylabel(r'$\delta T_b$ [mK]', fontsize=12)
-                ax1.set_title("Brightness Temperature ($\delta T_b$)", fontsize=14, color='white')
+                ax1.plot(x_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+                ax1.set_ylabel(r"$\delta T_b$ [mK]", fontsize=12)
                 ax1.set_xlim(5, 35) # Standard Range
                 if np.min(Tb_data) < -200:
                      ax1.set_ylim(np.min(Tb_data)*1.1, 20)
@@ -370,9 +377,8 @@ if selected_page == "Home":
                 ax1.legend(loc='lower right')
 
                 # Plot 2: xHI
-                ax2.plot(x_axis, xHI_data, color='cyan', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
-                ax2.set_ylabel(r'$x_{HI}$', fontsize=12)
-                ax2.set_title("Neutral Hydrogen Fraction ($x_{HI}$)", fontsize=14, color='white')
+                ax2.plot(x_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
                 ax2.set_ylim(-0.1, 1.1)
                 ax2.set_xlim(5, 35)
                 ax2.grid(True, which='both', linestyle='--', alpha=0.3)
@@ -383,14 +389,13 @@ if selected_page == "Home":
                 ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
                 ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
-                ax3.set_ylabel('Temperature [K]', fontsize=12)
-                ax3.set_title("Thermal History", fontsize=14, color='white')
+                ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
                 ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
                 ax3.legend(loc='lower right')
                 ax3.set_xlim(5, 35)
-                ax3.set_ylim(0,10**3)
+                ax3.set_ylim(10**-2,10**4)
                 for ax in [ax1, ax2, ax3]:
-                    ax.set_xlabel('Redshift ($z$)', fontsize=12)
+                    ax.set_xlabel(r"$Redshift ($z$)$", fontsize=12)
 
                 # Dark Theme Styling
                 fig.patch.set_alpha(0.0)
@@ -403,7 +408,7 @@ if selected_page == "Home":
                     for spine in ax.spines.values():
                         spine.set_color('white')
 
-                plt.subplots_adjust(hspace=0.35)
+                plt.subplots_adjust(hspace=0.25)
                 st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
