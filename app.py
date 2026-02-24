@@ -394,8 +394,30 @@ if selected_page == "Home":
                 ax3.legend(loc='lower right')
                 ax3.set_xlim(5, 35)
                 ax3.set_ylim(10**-2,10**4)
+                # --- X-Axis Redshift (Bottom, Linear) ---
                 for ax in [ax1, ax2, ax3]:
-                    ax.set_xlabel(r"$Redshift ($z$)$", fontsize=12)
+                    ax.set_xlabel(r"Redshift ($z$)", fontsize=12)
+                
+                # --- Secondary X-Axis Frequency (Top, Non-Linear) ---
+                # The 21cm rest frequency is ~1420.4 MHz
+                # Conversion functions (Redshift <-> Frequency)
+                def z_to_freq(z):
+                    return 1420.4 / (1 + z)
+                
+                def freq_to_z(f):
+                    return (1420.4 / f) - 1
+
+                for ax in [ax1, ax2, ax3]:
+                    secax = ax.secondary_xaxis('top', functions=(z_to_freq, freq_to_z))
+                    # Only add the label to the top-most plot to avoid clutter
+                    if ax == ax3:
+                        secax.set_xlabel(r"Frequency (MHz)", fontsize=12, labelpad=10)
+                    
+                    # Style the secondary axis to match the dark theme
+                    secax.tick_params(colors='white')
+                    secax.xaxis.label.set_color('white')
+                    for spine in secax.spines.values():
+                        spine.set_color('white')
 
                 # Dark Theme Styling
                 fig.patch.set_alpha(0.0)
@@ -408,7 +430,7 @@ if selected_page == "Home":
                     for spine in ax.spines.values():
                         spine.set_color('white')
 
-                plt.subplots_adjust(hspace=0.25)
+                plt.subplots_adjust(hspace=0.45) # Increased hspace to make room for the new top axes
                 st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
