@@ -352,21 +352,26 @@ if selected_page == "Home":
 
             # X-Axis Logic
             if len(z_bins) == len(Tb_data):
-                x_axis = z_bins
+                z_axis = np.array(z_bins)
             else:
-                x_axis = range(len(Tb_data))
+                z_axis = np.arange(len(Tb_data))
 
-            Tcmb_data = 2.725 * (1 + x_axis)
+            freq_axis = 1420.4 / (1 + z_axis)
+
+            Tcmb_data = 2.725 * (1 + z_axis)
 
             # Wrap plots in a container to maintain a consistent height, matching the left column
             with st.container(height=590):
                 # Reduced figsize height from 16 to 11 to help it fit on smaller screens without too much scrolling
                 fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
+                freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
+                freq_max = 1420.4 / (1 + 5)  # approx 236.73 MHz (z=5)
+
                 # Plot 1: Tb
-                ax1.plot(x_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+                ax1.plot(freq_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
                 ax1.set_ylabel(r"$\delta T_b$ [mK]", fontsize=12)
-                ax1.set_xlim(5, 35) # Standard Range
+                ax1.set_xlim(freq_min, freq_max)
                 if np.min(Tb_data) < -200:
                      ax1.set_ylim(np.min(Tb_data)*1.1, 20)
                 else:
@@ -377,41 +382,41 @@ if selected_page == "Home":
                 ax1.legend(loc='lower right')
 
                 # Plot 2: xHI
-                ax2.plot(x_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
                 ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
                 ax2.set_ylim(-0.1, 1.1)
-                ax2.set_xlim(5, 35)
+                ax2.set_xlim(freq_min, freq_max)
                 ax2.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax2.legend(loc='lower right')
 
                 # Plot 3: Thermal History
-                ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-                ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-                ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
                 ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
                 ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
                 ax3.legend(loc='lower right')
-                ax3.set_xlim(5, 35)
+                ax3.set_xlim(freq_min, freq_max)
                 ax3.set_ylim(10**-2,10**4)
-                # --- X-Axis Redshift (Bottom, Linear) ---
+                
+                # --- Primary X-Axis Frequency (Bottom, Linear) ---
                 for ax in [ax1, ax2, ax3]:
-                    ax.set_xlabel(r"Redshift ($z$)", fontsize=12)
+                    ax.set_xlabel(r"Frequency (MHz)", fontsize=12)
                 
-                # --- Secondary X-Axis Frequency (Top, Non-Linear) ---
-                # The 21cm rest frequency is ~1420.4 MHz
-                # Conversion functions (Redshift <-> Frequency)
-                def z_to_freq(z):
-                    return 1420.4 / (1 + z)
-                
+                # --- Secondary X-Axis Redshift (Top, Non-Linear) ---
+                # Conversion functions (Frequency <-> Redshift)
                 def freq_to_z(f):
                     return (1420.4 / f) - 1
+                
+                def z_to_freq(z):
+                    return 1420.4 / (1 + z)
 
                 for ax in [ax1, ax2, ax3]:
-                    secax = ax.secondary_xaxis('top', functions=(z_to_freq, freq_to_z))
+                    secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
                     # Only add the label to the top-most plot to avoid clutter
                     if ax == ax3:
-                        secax.set_xlabel(r"Frequency (MHz)", fontsize=12, labelpad=10)
+                        secax.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
                     
                     # Style the secondary axis to match the dark theme
                     secax.tick_params(colors='white')
