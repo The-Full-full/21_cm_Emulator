@@ -179,7 +179,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
+nav_options = ["Home", "Cosmological Parameters"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -528,16 +528,4 @@ elif selected_page == "Cosmological Parameters":
                     <div class="param-card-desc">{desc}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
-elif selected_page == "Relevant Degeneracies":
-    st.title("Relevant Degeneracies")
-    st.warning("Under Construction - Coming Soon!!!!!!!!!!!! dont!")
-
-elif selected_page == "About Us":
-    st.title("About Us")
-    st.warning("Under Construction - Coming Soon!!!!!!!!!!!! you! ")
-
-elif selected_page == "Credits":
-    st.title("Credits & Acknowledgements")
-    st.warning("Under Construction - Coming Soon!!!!!!!!!!!!! dare! ")
 
