@@ -382,40 +382,51 @@ if selected_page == "Home":
                 ax1.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax1.legend(loc='lower right')
 
-                # Secondary X-Axis for ax1 (Redshift)
+                # Secondary X-Axes Setup
                 def freq_to_z(f):
                     return (1420.4 / f) - 1
                 
                 def z_to_freq(z):
                     return 1420.4 / (1 + z)
 
-                secax = ax1.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                secax.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
-                secax.tick_params(colors='white')
-                secax.xaxis.label.set_color('white')
-                for spine in secax.spines.values():
-                    spine.set_color('white')
+                secax1 = ax1.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                secax1.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
 
-                # Plot 2: xHI (Redshift only)
-                ax2.plot(z_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                # Plot 2: xHI (Aligned with Frequency, Redshift on top)
+                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
                 ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
-                ax2.set_xlabel(r"Redshift ($z$)", fontsize=12)
                 ax2.set_ylim(-0.1, 1.1)
-                ax2.set_xlim(5, 35)
+                ax2.set_xlim(freq_min, freq_max)
                 ax2.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax2.legend(loc='lower right')
+                
+                # Hide primary (bottom) axis and add Redshift to top
+                ax2.tick_params(labelbottom=False, bottom=False)
+                secax2 = ax2.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                secax2.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
 
-                # Plot 3: Thermal History (Redshift only)
-                ax3.semilogy(z_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-                ax3.semilogy(z_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-                ax3.semilogy(z_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+                # Plot 3: Thermal History (Aligned with Frequency, Redshift on top)
+                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
                 ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
-                ax3.set_xlabel(r"Redshift ($z$)", fontsize=12)
-                ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+                ax3.grid(True, which='major', linestyle='--', alpha=0.3)
                 ax3.legend(loc='lower right')
-                ax3.set_xlim(5, 35)
+                ax3.set_xlim(freq_min, freq_max)
                 ax3.set_ylim(10**-2,10**4)
+                
+                # Hide primary (bottom) axis and add Redshift to top
+                ax3.tick_params(labelbottom=False, bottom=False)
+                secax3 = ax3.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                secax3.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
+                
+                # Style all secondary axes
+                for secax in [secax1, secax2, secax3]:
+                    secax.tick_params(colors='white')
+                    secax.xaxis.label.set_color('white')
+                    for spine in secax.spines.values():
+                        spine.set_color('white')
                 
                 # Dark Theme Styling
                 fig.patch.set_alpha(0.0)
