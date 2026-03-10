@@ -149,10 +149,25 @@ div[data-testid="stSlider"] {
     margin-bottom: -15px !important;
 }
 
-/* Ensure the Reset button text stays on one line */
-div[data-testid="stButton"] button p {
-    white-space: nowrap !important;
-    font-size: 14px !important;
+/* Custom Reset Button Styling */
+div[data-testid="stButton"] button {
+    background-color: rgba(255, 255, 255, 0.05) !important; /* אפור שקוף כהה */
+    border: 1px solid rgba(255, 255, 255, 0.2) !important; /* מסגרת עדינה */
+    color: white !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* אפקט כשעוברים עם העכבר מעל הכפתור */
+div[data-testid="stButton"] button:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* אפקט של לחיצה על הכפתור */
+div[data-testid="stButton"] button:active {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+
 }
 </style>
 """
@@ -202,28 +217,6 @@ if selected_page == "Home":
     This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
     """)
 
-    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
-    st.write(r"""
-    The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
-    The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
-    """)
-
-    # Scientific Equation
-    st.latex(r"""
-    \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
-    """)
-
-    st.write(r"""
-    Where:
-    - $x_{HI}$ is the neutral hydrogen fraction.
-    - $\delta_b$ is the baryon overdensity.
-    - $z$ is the redshift.
-    - The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
-        - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
-        - **Emission ($T_S > T_{CMB}$):** Positive signal.
-    """)
-
-    st.markdown("---")
 
     # --- LOADER ---
     with st.spinner('Initializing Emulator System (New Model)...'):
@@ -348,7 +341,7 @@ if selected_page == "Home":
             Ts_data = predictions[Ts_index][sample_idx]
 
             # Gaussian Smoothing (Apply to Tb)
-            #Tb_data = gaussian_filter1d(Tb_data, sigma=1)
+            Tb_data = gaussian_filter1d(Tb_data, sigma=2)
 
             # X-Axis Logic
             if len(z_bins) == len(Tb_data):
@@ -363,7 +356,7 @@ if selected_page == "Home":
             # Wrap plots in a container to maintain a consistent height, matching the left column
             with st.container(height=590):
                 # Reduced figsize height from 16 to 11 to help it fit on smaller screens without too much scrolling
-                fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+                fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
                 freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
                 freq_max = 1420.4 / (1 + 5)  # approx 236.73 MHz (z=5)
@@ -371,8 +364,7 @@ if selected_page == "Home":
                 # Plot 1: Tb (Frequency on bottom, Redshift on top)
                 ax1.plot(freq_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
                 ax1.set_ylabel(r"$\delta T_b$ [mK]", fontsize=12)
-                ax1.set_xlabel(r"Frequency (MHz)", fontsize=12)
-                ax1.set_xlim(freq_min, freq_max)
+                ax1.set_xlim(freq_max, freq_min)
                 if np.min(Tb_data) < -200:
                      ax1.set_ylim(np.min(Tb_data)*1.1, 20)
                 else:
@@ -382,47 +374,44 @@ if selected_page == "Home":
                 ax1.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax1.legend(loc='lower right')
 
-                # Secondary X-Axes Setup
+                # Plot 2: xHI
+                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
+                ax2.set_ylim(-0.1, 1.1)
+                ax2.set_xlim(freq_max, freq_min)
+                ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax2.legend(loc='lower right')
+
+                # Plot 3: Thermal History
+                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+
+                ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
+                ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+                ax3.legend(loc='lower right')
+                ax3.set_xlim(freq_max, freq_min)
+                ax3.set_ylim(10**-2,10**4)
+                
+                # --- Primary X-Axis Frequency (Bottom, Linear) ---
+                for ax in [ax1, ax2, ax3]:
+                    ax.set_xlabel(r"Frequency (MHz)", fontsize=12)
+                
+                # --- Secondary X-Axis Redshift (Top, Non-Linear) ---
+                # Conversion functions (Frequency <-> Redshift)
                 def freq_to_z(f):
                     return (1420.4 / f) - 1
                 
                 def z_to_freq(z):
                     return 1420.4 / (1 + z)
 
-                secax1 = ax1.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                secax1.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
-
-                # Plot 2: xHI (Aligned with Frequency, Redshift on top)
-                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
-                ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
-                ax2.set_ylim(-0.1, 1.1)
-                ax2.set_xlim(freq_min, freq_max)
-                ax2.grid(True, which='both', linestyle='--', alpha=0.3)
-                ax2.legend(loc='lower right')
-                
-                # Hide primary (bottom) axis and add Redshift to top
-                ax2.tick_params(labelbottom=False, bottom=False)
-                secax2 = ax2.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                secax2.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
-
-                # Plot 3: Thermal History (Aligned with Frequency, Redshift on top)
-                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
-
-                ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
-                ax3.grid(True, which='major', linestyle='--', alpha=0.3)
-                ax3.legend(loc='lower right')
-                ax3.set_xlim(freq_min, freq_max)
-                ax3.set_ylim(10**-2,10**4)
-                
-                # Hide primary (bottom) axis and add Redshift to top
-                ax3.tick_params(labelbottom=False, bottom=False)
-                secax3 = ax3.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                secax3.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
-                
-                # Style all secondary axes
-                for secax in [secax1, secax2, secax3]:
+                for ax in [ax1, ax2, ax3]:
+                    secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                    # Only add the label to the top-most plot to avoid clutter
+                    if ax == ax1:
+                        secax.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
+                    
+                    # Style the secondary axis to match the dark theme
                     secax.tick_params(colors='white')
                     secax.xaxis.label.set_color('white')
                     for spine in secax.spines.values():
@@ -443,6 +432,49 @@ if selected_page == "Home":
                 st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
+
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
+    st.write(r"""
+    The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
+    The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
+    """)
+
+    # Scientific Equation
+    st.latex(r"""
+    \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
+    """)
+
+    st.write(r"""
+    Where:
+    - $x_{HI}$ is the neutral hydrogen fraction.
+    - $\delta_b$ is the baryon overdensity.
+    - $z$ is the redshift.
+    - The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
+        - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
+        - **Emission ($T_S > T_{CMB}$):** Positive signal.
+    """)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.write(r"""
+        The spin temperature ($T_S$) itself is calculated based on its coupling to the CMB radiation, gas collisions, and the local Lyman-$\alpha$ radiation field:
+        """)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.latex(r"""
+        T_S^{-1} = \frac{T_{CMB}^{-1} + x_c T_k^{-1} + x_\alpha T_\alpha^{-1}}{1 + x_c + x_\alpha}
+        """)
+
+    st.write(r"""
+        Where:
+        - $x_c$ is the collisional coupling coefficient.
+        - $x_\alpha$ is the Wouthuysen-Field (Lyman-$\alpha$) coupling coefficient.
+        - $T_k$ is the kinetic temperature of the gas.
+        - $T_\alpha$ is the color temperature of the radiation field (typically $T_\alpha \approx T_k$).
+        """)
+
+    st.markdown("---")
 
 elif selected_page == "Cosmological Parameters":
     st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold;'>Cosmological Parameters</div>", unsafe_allow_html=True)
@@ -476,7 +508,7 @@ elif selected_page == "Cosmological Parameters":
         border-radius: 12px;
         margin-bottom: 25px;
         border: 1px solid rgba(255,255,255,0.1);
-        height: 250px; /* Fixed height so all boxes are exactly the same size */
+        height: 165px; /* Fixed height so all boxes are exactly the same size */
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         overflow: hidden; /* Prevent text spilling if it's too long */
@@ -486,7 +518,7 @@ elif selected_page == "Cosmological Parameters":
         box-shadow: 0 8px 15px rgba(0,0,0,0.4);
     }
     .param-card-title {
-        font-size: 1.35rem;
+        font-size: 1.15rem;
         font-weight: bold;
         margin-bottom: 12px;
         border-bottom: 1px solid rgba(255,255,255,0.2);
@@ -494,7 +526,7 @@ elif selected_page == "Cosmological Parameters":
         color: white;
     }
     .param-card-desc {
-        font-size: 0.95rem; /* Slightly smaller text to ensure it fits perfectly */
+        font-size: 0.85rem; /* Slightly smaller text to ensure it fits perfectly */
         color: #e5e7eb;
         line-height: 1.5;
     }
@@ -502,8 +534,8 @@ elif selected_page == "Cosmological Parameters":
         font-size: 1.8rem;
         font-weight: 600;
         color: white;
-        margin-top: 30px;
-        margin-bottom: 15px;
+        margin-top: 10px;
+        margin-bottom: 10px;
         padding-bottom: 5px;
         border-bottom: 2px solid rgba(255,255,255,0.3);
     }
