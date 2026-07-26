@@ -914,196 +914,199 @@ elif selected_page == "Relevant Degeneracies":
     )
 
     # --- 4. LAYOUT CREATION ---
-    col_plot, col_predict = st.columns([0.85, 1.4], gap="large")
+    col_plot, col_predict = st.columns([1.1, 1.5], gap="medium")
 
     with col_plot:
-        st.subheader("2D Posterior Degeneracy Map", anchor=False)
+        with st.container(border=True, height=660):
+            st.subheader("2D Posterior Degeneracy Map", anchor=False)
 
-        # Create two columns inside col_plot: Left (Chart + X-slider at top) and Right (Vertical Y-slider)
-        col_chart_and_x, col_slider_y = st.columns([0.94, 0.06], gap="small")
+            # Create two columns inside col_plot: Left (Chart + X-slider at top) and Right (Vertical Y-slider)
+            col_chart_and_x, col_slider_y = st.columns([0.88, 0.12], gap="small")
 
-        with col_chart_and_x:
-            # Active Parameter values readout
-            st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
+            with col_chart_and_x:
+                # Active Parameter values readout
+                st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
 
-            # X-axis parameter slider (placed ABOVE the chart, parallel to X-axis top edge)
-            val_x = st.slider(
-                label="x_slider", 
-                min_value=x_min, 
-                max_value=x_max, 
-                step=0.01 if "L_X" not in x_label else 0.05, 
-                key=slider_x_key, 
-                value=float(x_current),
-                label_visibility="collapsed" # Hide native label to keep it clean
-            )
+                # X-axis parameter slider (placed ABOVE the chart, parallel to X-axis top edge)
+                val_x = st.slider(
+                    label="x_slider", 
+                    min_value=x_min, 
+                    max_value=x_max, 
+                    step=0.01 if "L_X" not in x_label else 0.05, 
+                    key=slider_x_key, 
+                    value=float(x_current),
+                    label_visibility="collapsed" # Hide native label to keep it clean
+                )
 
-            # Render Chart and Capture Events
-            event = st.plotly_chart(
-                fig, 
-                on_select="rerun", 
-                selection_mode="points",
-                use_container_width=True,
-                key=f"plotly_{key_degen_pair}", 
-                config={'displayModeBar': False, 'scrollZoom': False}
-            )
+                # Render Chart and Capture Events
+                event = st.plotly_chart(
+                    fig, 
+                    on_select="rerun", 
+                    selection_mode="points",
+                    use_container_width=True,
+                    key=f"plotly_{key_degen_pair}", 
+                    config={'displayModeBar': False, 'scrollZoom': False}
+                )
 
-        with col_slider_y:
-            st.markdown("<div style='margin-top: 93px; margin-left: -50px;'></div>", unsafe_allow_html=True)
-            from streamlit_vertical_slider import vertical_slider
-            val_y = vertical_slider(
-                label="",
-                min_value=float(y_min),
-                max_value=float(y_max),
-                step=0.01,
-                key=slider_y_key,
-                default_value=float(y_current),
-                height=295,
-                track_color='rgba(255,255,255,0.2)',
-                slider_color='#8b5cf6',
-                thumb_color='#ffffff',
-                value_always_visible=False
-            )
+            with col_slider_y:
+                st.markdown("<div style='margin-top: 65px;'></div>", unsafe_allow_html=True)
+                from streamlit_vertical_slider import vertical_slider
+                val_y = vertical_slider(
+                    label="",
+                    min_value=float(y_min),
+                    max_value=float(y_max),
+                    step=0.01,
+                    key=slider_y_key,
+                    default_value=float(y_current),
+                    height=315,
+                    track_color='rgba(255,255,255,0.2)',
+                    slider_color='#8b5cf6',
+                    thumb_color='#ffffff',
+                    value_always_visible=False
+                )
 
-        # Check and handle click events (requires rerun to sync coordinates to slider defaults)
-        if event:
-            selection = None
-            if hasattr(event, "selection"):
-                selection = event.selection
-            elif isinstance(event, dict) and "selection" in event:
-                selection = event["selection"]
+            # Check and handle click events (requires rerun to sync coordinates to slider defaults)
+            if event:
+                selection = None
+                if hasattr(event, "selection"):
+                    selection = event.selection
+                elif isinstance(event, dict) and "selection" in event:
+                    selection = event["selection"]
                 
-            if selection:
-                points = []
-                if hasattr(selection, "points"):
-                    points = selection.points
-                elif isinstance(selection, dict) and "points" in selection:
-                    points = selection["points"]
+                if selection:
+                    points = []
+                    if hasattr(selection, "points"):
+                        points = selection.points
+                    elif isinstance(selection, dict) and "points" in selection:
+                        points = selection["points"]
                     
-                if len(points) > 0:
-                    x_coords = [p.get("x") for p in points if isinstance(p, dict) and p.get("x") is not None]
-                    y_coords = [p.get("y") for p in points if isinstance(p, dict) and p.get("y") is not None]
+                    if len(points) > 0:
+                        x_coords = [p.get("x") for p in points if isinstance(p, dict) and p.get("x") is not None]
+                        y_coords = [p.get("y") for p in points if isinstance(p, dict) and p.get("y") is not None]
                     
-                    if len(x_coords) == 0:
-                        x_coords = [p.x for p in points if hasattr(p, "x") and p.x is not None]
-                    if len(y_coords) == 0:
-                        y_coords = [p.y for p in points if hasattr(p, "y") and p.y is not None]
+                        if len(x_coords) == 0:
+                            x_coords = [p.x for p in points if hasattr(p, "x") and p.x is not None]
+                        if len(y_coords) == 0:
+                            y_coords = [p.y for p in points if hasattr(p, "y") and p.y is not None]
                         
-                    if len(x_coords) > 0 and len(y_coords) > 0:
-                        click_x = np.mean(x_coords)
-                        click_y = np.mean(y_coords)
-                        st.session_state[x_key] = float(click_x)
-                        st.session_state[y_key] = float(click_y)
-                        st.session_state[slider_x_key] = float(click_x)
-                        st.session_state[slider_y_key] = float(click_y)
-                        st.rerun()
+                        if len(x_coords) > 0 and len(y_coords) > 0:
+                            click_x = np.mean(x_coords)
+                            click_y = np.mean(y_coords)
+                            st.session_state[x_key] = float(click_x)
+                            st.session_state[y_key] = float(click_y)
+                            st.session_state[slider_x_key] = float(click_x)
+                            st.session_state[slider_y_key] = float(click_y)
+                            st.rerun()
 
     with col_predict:
-        st.subheader("Global Signal Prediction", anchor=False)
-        # Spacer to align the top of the Matplotlib prediction plot exactly with the top of the Plotly plot
-        st.markdown("<div style='height: 65px;'></div>", unsafe_allow_html=True)
+        with st.container(border=True, height=660):
+            st.subheader("Global Signal Prediction", anchor=False)
+            # Spacer to align the top of the Matplotlib prediction plot exactly with the top of the Plotly plot
+            st.markdown("<div style='height: 65px;'></div>", unsafe_allow_html=True)
 
-        # Build input vector for emulator
-        degen_input = np.zeros((1, num_params))
+            # Build input vector for emulator
+            degen_input = np.zeros((1, num_params))
         
-        active_2d_indices = []
-        if degen_pair == "f_esc vs f_star":
-            active_2d_indices = [2, 0]
-        elif degen_pair == "f_star vs L_X":
-            active_2d_indices = [0, 6]
-        elif degen_pair == "f_esc vs L_X":
-            active_2d_indices = [2, 6]
+            active_2d_indices = []
+            if degen_pair == "f_esc vs f_star":
+                active_2d_indices = [2, 0]
+            elif degen_pair == "f_star vs L_X":
+                active_2d_indices = [0, 6]
+            elif degen_pair == "f_esc vs L_X":
+                active_2d_indices = [2, 6]
             
-        for i in range(num_params):
-            if i in active_2d_indices:
-                if param_names[i] == 'F_STAR':
-                    degen_input[0, i] = st.session_state['degen_val_f_star']
-                elif param_names[i] == 'F_ESC':
-                    degen_input[0, i] = st.session_state['degen_val_f_esc']
-                elif param_names[i] == 'L_X':
-                    degen_input[0, i] = st.session_state['degen_val_l_x']
-            elif param_names[i] in ['R_MFP', 'TAU_E']:
-                degen_input[0, i] = (min_vals[i] + max_vals[i]) / 2.0
-            else:
-                default_val = (min_vals[i] + max_vals[i]) / 2.0
-                degen_input[0, i] = st.session_state.get(f"degen_slider_{i}", default_val)
+            for i in range(num_params):
+                p_name = param_names[i].strip()
+                if i in active_2d_indices:
+                    if p_name == 'F_STAR10':
+                        degen_input[0, i] = st.session_state['degen_val_f_star']
+                    elif p_name == 'F_ESC10':
+                        degen_input[0, i] = st.session_state['degen_val_f_esc']
+                    elif p_name == 'L_X':
+                        degen_input[0, i] = st.session_state['degen_val_l_x']
+                elif p_name in ['R_MFP', 'TAU_E']:
+                    degen_input[0, i] = (min_vals[i] + max_vals[i]) / 2.0
+                else:
+                    default_val = (min_vals[i] + max_vals[i]) / 2.0
+                    degen_input[0, i] = st.session_state.get(f"degen_slider_{i}", default_val)
 
-        # Clip values to emulator bounds
-        for i in range(num_params):
-            degen_input[0, i] = np.clip(degen_input[0, i], min_vals[i], max_vals[i])
+            # Clip values to emulator bounds
+            for i in range(num_params):
+                degen_input[0, i] = np.clip(degen_input[0, i], min_vals[i], max_vals[i])
 
-        # Run Prediction
-        try:
-            degen_preds = emulator.predict(degen_input)
-            degen_Tb = degen_preds[1][0]
+            # Run Prediction
+            try:
+                degen_preds = emulator.predict(degen_input)
+                degen_Tb = degen_preds[1][0]
             
-            # Smooth
-            degen_Tb = gaussian_filter1d(degen_Tb, sigma=2)
+                # Smooth
+                degen_Tb = gaussian_filter1d(degen_Tb, sigma=2)
 
-            # Redshift/Frequency Conversion Functions
-            def freq_to_z_degen(f):
-                return (1420.4 / f) - 1
+                # Redshift/Frequency Conversion Functions
+                def freq_to_z_degen(f):
+                    return (1420.4 / f) - 1
             
-            def z_to_freq_degen(z):
-                return 1420.4 / (1 + z)
+                def z_to_freq_degen(z):
+                    return 1420.4 / (1 + z)
 
-            if len(z_bins) == len(degen_Tb):
-                z_axis_degen = np.array(z_bins)
-            else:
-                z_axis_degen = np.arange(len(degen_Tb))
+                if len(z_bins) == len(degen_Tb):
+                    z_axis_degen = np.array(z_bins)
+                else:
+                    z_axis_degen = np.arange(len(degen_Tb))
 
-            freq_axis_degen = 1420.4 / (1 + z_axis_degen)
-            freq_min = 1420.4 / (1 + 35)
-            freq_max = 1420.4 / (1 + 5)
+                freq_axis_degen = 1420.4 / (1 + z_axis_degen)
+                freq_min = 1420.4 / (1 + 35)
+                freq_max = 1420.4 / (1 + 5)
 
-            # Plot Tb using Matplotlib (rectangular shape with height reduced to 310px)
-            fig_pred, ax = plt.subplots(figsize=(8.0, 4.0), dpi=100)
-            ax.plot(freq_axis_degen, degen_Tb, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temp} \,\, (\delta T_b)$')
-            ax.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
-            ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
-            ax.set_xlim(freq_max, freq_min)
-            if np.min(degen_Tb) < -200:
-                ax.set_ylim(np.min(degen_Tb)*1.1, 20)
-            else:
-                ax.set_ylim(-250, 50)
-            ax.axhline(y=0, color='white', linestyle='--', alpha=0.5)
-            ax.grid(True, which='both', linestyle='--', alpha=0.3)
-            ax.legend(loc='lower right')
+                # Plot Tb using Matplotlib (rectangular shape with height reduced to 310px)
+                fig_pred, ax = plt.subplots(figsize=(8.0, 4.0), dpi=100)
+                ax.plot(freq_axis_degen, degen_Tb, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temp} \,\, (\delta T_b)$')
+                ax.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
+                ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
+                ax.set_xlim(freq_max, freq_min)
+                if np.min(degen_Tb) < -200:
+                    ax.set_ylim(np.min(degen_Tb)*1.1, 20)
+                else:
+                    ax.set_ylim(-250, 50)
+                ax.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+                ax.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax.legend(loc='lower right')
 
-            # Add Top Redshift Axis
-            secax = ax.secondary_xaxis('top', functions=(freq_to_z_degen, z_to_freq_degen))
-            secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
-            secax.tick_params(colors='white')
-            secax.xaxis.label.set_color('white')
-            for spine in secax.spines.values():
-                spine.set_color('white')
+                # Add Top Redshift Axis
+                secax = ax.secondary_xaxis('top', functions=(freq_to_z_degen, z_to_freq_degen))
+                secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
+                secax.tick_params(colors='white')
+                secax.xaxis.label.set_color('white')
+                for spine in secax.spines.values():
+                    spine.set_color('white')
 
-            # Dark theme formatting
-            fig_pred.patch.set_alpha(0.0)
-            ax.set_facecolor((0, 0, 0, 0.2))
-            ax.tick_params(colors='white')
-            ax.xaxis.label.set_color('white')
-            ax.yaxis.label.set_color('white')
-            ax.title.set_color('white')
-            for spine in ax.spines.values():
-                spine.set_color('white')
+                # Dark theme formatting
+                fig_pred.patch.set_alpha(0.0)
+                ax.set_facecolor((0, 0, 0, 0.2))
+                ax.tick_params(colors='white')
+                ax.xaxis.label.set_color('white')
+                ax.yaxis.label.set_color('white')
+                ax.title.set_color('white')
+                for spine in ax.spines.values():
+                    spine.set_color('white')
 
-            st.pyplot(fig_pred, use_container_width=False)
+                st.pyplot(fig_pred, use_container_width=False)
 
-        except Exception as e:
-            st.error(f"Inference failed: {e}")
+            except Exception as e:
+                st.error(f"Inference failed: {e}")
 
 
     st.markdown("<hr style='margin-top: -10px; margin-bottom: 15px;'>", unsafe_allow_html=True)
     st.subheader("Other Parameters", anchor=False)
-    
+
     # We display sliders for the parameters not in the 2D plot
     slider_cols = st.columns(4)
     col_idx = 0
-    
+
     for i in range(num_params):
         if i in active_2d_indices or param_names[i] in ['R_MFP', 'TAU_E']:
             continue
-            
+        
         p_name = param_names[i]
         desc_key = p_name.strip()
         if desc_key not in PARAM_DESCRIPTIONS:
@@ -1111,17 +1114,17 @@ elif selected_page == "Relevant Degeneracies":
                 if key in desc_key:
                     desc_key = key
                     break
-                    
+                
         p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
         display_label = PARAM_LABELS.get(desc_key, p_name)
-        
+    
         current_min = float(min_vals[i])
         current_max = float(max_vals[i])
         current_default = (current_min + current_max) / 2.0
-        
+    
         if f"degen_slider_{i}" not in st.session_state:
             st.session_state[f"degen_slider_{i}"] = float(current_default)
-            
+        
         with slider_cols[col_idx % 4]:
             st.slider(
                 label=display_label,
@@ -1187,7 +1190,7 @@ elif selected_page == "About Us":
         height: 100%;
         object-fit: cover;
     }
-    
+
     /* Responsive logic for small screens */
     @media (max-width: 768px) {
         .about-card {
@@ -1202,9 +1205,9 @@ elif selected_page == "About Us":
     </style>
     """
     st.markdown(about_css, unsafe_allow_html=True)
-    
+
     col1, col2 = st.columns(2, gap="large")
-    
+
     # 1st Card: Roy
     with col1:
         st.markdown("""
@@ -1220,7 +1223,7 @@ elif selected_page == "About Us":
             </div>
         </div>
         """, unsafe_allow_html=True)
-    
+
     # 2nd Card: Ron
     with col2:
         st.markdown("""
@@ -1240,7 +1243,7 @@ elif selected_page == "About Us":
 
 elif selected_page == "Credits":
     st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>Credits & Acknowledgments</div>", unsafe_allow_html=True)
-    
+
     credits_css = """
     <style>
     .credit-section {
@@ -1274,7 +1277,7 @@ elif selected_page == "Credits":
     </style>
     """
     st.markdown(credits_css, unsafe_allow_html=True)
-    
+
     st.markdown("""
     <div class="credit-section">
         <div class="credit-title">Academic Guidance & Mentorship</div>
@@ -1284,7 +1287,7 @@ elif selected_page == "Credits":
             Their guidance, expertise, and continuous feedback were invaluable to the success of this project.
         </div>
     </div>
-    
+
     <div class="credit-section" style="border-left-color: rgba(96, 165, 250, 0.8);">
         <div class="credit-title">Powered By</div>
         <div class="credit-text">
@@ -1294,7 +1297,7 @@ elif selected_page == "Credits":
             from <span class="credit-highlight">NumPy</span> and <span class="credit-highlight">SciPy</span>.
         </div>
     </div>
-    
+
     <div class="credit-section" style="border-left-color: rgba(52, 211, 153, 0.8);">
         <div class="credit-title">Scientific Foundation</div>
         <div class="credit-text">
