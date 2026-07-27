@@ -931,14 +931,12 @@ elif selected_page == "Relevant Degeneracies":
         with st.container(border=True, height=700):
             st.subheader("2D Posterior Degeneracy Map", anchor=False)
 
-            # Create two columns inside col_plot: Left (Chart + X-slider at top) and Right (Vertical Y-slider)
-            col_chart_and_x, col_slider_y = st.columns([0.88, 0.12], gap="small")
+            # Active Parameter values readout (Placed outside columns so it doesn't push the chart down unevenly on small screens)
+            st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
 
-            with col_chart_and_x:
-                # Active Parameter values readout
-                st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
-
-                # X-axis parameter slider (placed ABOVE the chart, parallel to X-axis top edge)
+            # Top Row: X-slider only
+            col_x_slider, _ = st.columns([0.88, 0.12], gap="small")
+            with col_x_slider:
                 val_x = st.slider(
                     label="x_slider", 
                     min_value=x_min, 
@@ -949,6 +947,10 @@ elif selected_page == "Relevant Degeneracies":
                     label_visibility="collapsed" # Hide native label to keep it clean
                 )
 
+            # Bottom Row: Chart and Y-slider
+            col_chart, col_slider_y = st.columns([0.88, 0.12], gap="small")
+            
+            with col_chart:
                 # Render Chart and Capture Events
                 event = st.plotly_chart(
                     fig, 
@@ -960,7 +962,8 @@ elif selected_page == "Relevant Degeneracies":
                 )
 
             with col_slider_y:
-                st.markdown("<div style='margin-top: 65px;'></div>", unsafe_allow_html=True)
+                # The chart has an internal top margin of 20px. We match this exactly so the slider perfectly aligns with the plot area!
+                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
                 from streamlit_vertical_slider import vertical_slider
                 val_y = vertical_slider(
                     label="",
@@ -969,11 +972,10 @@ elif selected_page == "Relevant Degeneracies":
                     step=0.01,
                     key=slider_y_key,
                     default_value=float(y_current),
-                    height=315,
-                    track_color='rgba(255,255,255,0.2)',
-                    slider_color='#8b5cf6',
-                    thumb_color='#ffffff',
-                    value_always_visible=False
+                    slider_color="#9159ff",
+                    track_color="#555555",
+                    thumb_color="white",
+                    height=310
                 )
 
             # Check and handle click events (requires rerun to sync coordinates to slider defaults)
