@@ -180,12 +180,23 @@ div[data-testid="stSlider"] {
     overflow: hidden !important;
 }
 
-/* Prevent the column containing the chart from clipping the graph on smaller screens */
+/* Prevent the column containing the chart from expanding or shrinking so it stays glued to the vertical slider */
 div[data-testid="column"]:has(.st-key-plotly_f_esc_vs_f_star),
 div[data-testid="column"]:has(.st-key-plotly_f_star_vs_L_X),
 div[data-testid="column"]:has(.st-key-plotly_f_esc_vs_L_X) {
     min-width: 380px !important;
+    max-width: 380px !important;
+    flex: 0 0 380px !important;
     overflow: visible !important;
+}
+
+/* Fix the vertical slider column width */
+div[data-testid="column"]:has(.st-key-degen_slider_f_esc_vs_f_star_y),
+div[data-testid="column"]:has(.st-key-degen_slider_f_star_vs_L_X_y),
+div[data-testid="column"]:has(.st-key-degen_slider_f_esc_vs_L_X_y) {
+    min-width: 70px !important;
+    max-width: 70px !important;
+    flex: 0 0 70px !important;
 }
 
 .st-key-plotly_f_esc_vs_f_star > div,
@@ -1215,7 +1226,7 @@ elif selected_page == "About Us":
             <div class="about-info">
                 <div class="about-name">Roy</div>
                 <div class="about-desc">
-                    The Full Full, second year on my batclur party 
+                    seconed year 
                 </div>
             </div>
             <div class="about-img-container">
@@ -1231,7 +1242,7 @@ elif selected_page == "About Us":
             <div class="about-info">
                 <div class="about-name">Ron</div>
                 <div class="about-desc">
-                    The greatest man alive, great partner to the lab and not gay at all.
+                    seconed year 
                 </div>
             </div>
             <div class="about-img-container">
