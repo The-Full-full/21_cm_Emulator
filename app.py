@@ -917,7 +917,7 @@ elif selected_page == "Relevant Degeneracies":
     col_plot, col_predict = st.columns([1.1, 1.5], gap="medium")
 
     with col_plot:
-        with st.container(border=True, height=660):
+        with st.container(border=True, height=700):
             st.subheader("2D Posterior Degeneracy Map", anchor=False)
 
             # Create two columns inside col_plot: Left (Chart + X-slider at top) and Right (Vertical Y-slider)
@@ -999,7 +999,7 @@ elif selected_page == "Relevant Degeneracies":
                             st.rerun()
 
     with col_predict:
-        with st.container(border=True, height=660):
+        with st.container(border=True, height=700):
             st.subheader("Global Signal Prediction", anchor=False)
             # Spacer to align the top of the Matplotlib prediction plot exactly with the top of the Plotly plot
             st.markdown("<div style='height: 65px;'></div>", unsafe_allow_html=True)
