@@ -11,9 +11,8 @@ matplotlib
 #Machine Learning framework
 tensorflow
 h5py
-tf-keras
 
 #Specific Dependency rules
-typing-extensions>=4.10.0,<5
+typing-extensions<4.6.0
 
 scipy

@@ -48,12 +48,12 @@ MODEL_NAME = 'globals_model'
 # Dictionary mapping parameter names to their physical descriptions
 PARAM_DESCRIPTIONS = {
     # Star Formation
-    'F_STAR10': r"Star Formation Efficiency ($f_{*,10}$): The fraction of gas converting to stars in halos of mass $10^{10} M_{\odot}$. Controls the intensity of the UV signal.",
+    'F_STAR10': "Star Formation Efficiency ($f_{*,10}$): The fraction of gas converting to stars in halos of mass $10^{10} M_{\odot}$. Controls the intensity of the UV signal.",
     'ALPHA_STAR': "Star Formation Slope ($\\alpha_*$): Determines how star formation efficiency changes with halo mass. Positive values mean efficient formation in massive halos.",
     't_STAR': "Star Formation Timescale ($t_*$): The duration of star formation bursts as a fraction of the Hubble time. Affects how quickly galaxies evolve.",
 
     # Escape Fraction (Reionization)
-    'F_ESC10': r"Escape Fraction ($f_{esc,10}$): The fraction of ionizing UV photons escaping from halos of mass $10^{10} M_{\odot}$. This is the main driver of when Reionization happens.",
+    'F_ESC10': "Escape Fraction ($f_{esc,10}$): The fraction of ionizing UV photons escaping from halos of mass $10^{10} M_{\odot}$. This is the main driver of when Reionization happens.",
     'ALPHA_ESC': "Escape Fraction Slope ($\\alpha_{esc}$): How the escape fraction scales with halo mass. Critical for understanding which galaxies drive reionization.",
     'M_TURN': "Turnover Mass ($M_{turn}$): The halo mass threshold below which star formation is suppressed (due to feedback).",
 
@@ -149,25 +149,10 @@ div[data-testid="stSlider"] {
     margin-bottom: -15px !important;
 }
 
-/* Custom Reset Button Styling */
-div[data-testid="stButton"] button {
-    background-color: rgba(255, 255, 255, 0.05) !important; /* אפור שקוף כהה */
-    border: 1px solid rgba(255, 255, 255, 0.2) !important; /* מסגרת עדינה */
-    color: white !important;
-    border-radius: 8px !important;
-    transition: all 0.2s ease !important;
-}
-
-/* אפקט כשעוברים עם העכבר מעל הכפתור */
-div[data-testid="stButton"] button:hover {
-    background-color: rgba(255, 255, 255, 0.15) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
-}
-
-/* אפקט של לחיצה על הכפתור */
-div[data-testid="stButton"] button:active {
-    background-color: rgba(255, 255, 255, 0.2) !important;
-
+/* Ensure the Reset button text stays on one line */
+div[data-testid="stButton"] button p {
+    white-space: nowrap !important;
+    font-size: 14px !important;
 }
 </style>
 """
@@ -194,7 +179,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Cosmological Parameters"]
+nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -217,6 +202,28 @@ if selected_page == "Home":
     This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
     """)
 
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
+    st.write("""
+    The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
+    The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
+    """)
+
+    # Scientific Equation
+    st.latex(r"""
+    \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
+    """)
+
+    st.write("""
+    Where:
+    - $x_{HI}$ is the neutral hydrogen fraction.
+    - $\delta_b$ is the baryon overdensity.
+    - $z$ is the redshift.
+    - The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
+        - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
+        - **Emission ($T_S > T_{CMB}$):** Positive signal.
+    """)
+
+    st.markdown("---")
 
     # --- LOADER ---
     with st.spinner('Initializing Emulator System (New Model)...'):
@@ -341,30 +348,25 @@ if selected_page == "Home":
             Ts_data = predictions[Ts_index][sample_idx]
 
             # Gaussian Smoothing (Apply to Tb)
-            Tb_data = gaussian_filter1d(Tb_data, sigma=2)
+            #Tb_data = gaussian_filter1d(Tb_data, sigma=1)
 
             # X-Axis Logic
             if len(z_bins) == len(Tb_data):
-                z_axis = np.array(z_bins)
+                x_axis = z_bins
             else:
-                z_axis = np.arange(len(Tb_data))
+                x_axis = range(len(Tb_data))
 
-            freq_axis = 1420.4 / (1 + z_axis)
-
-            Tcmb_data = 2.725 * (1 + z_axis)
+            Tcmb_data = 2.725 * (1 + x_axis)
 
             # Wrap plots in a container to maintain a consistent height, matching the left column
             with st.container(height=590):
                 # Reduced figsize height from 16 to 11 to help it fit on smaller screens without too much scrolling
-                fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+                fig, (ax3, ax2, ax1) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
-                freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
-                freq_max = 1420.4 / (1 + 5)  # approx 236.73 MHz (z=5)
-
-                # Plot 1: Tb (Frequency on bottom, Redshift on top)
-                ax1.plot(freq_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
+                # Plot 1: Tb
+                ax1.plot(x_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'Brightness Temperature ($\delta T_b$)')
                 ax1.set_ylabel(r"$\delta T_b$ [mK]", fontsize=12)
-                ax1.set_xlim(freq_max, freq_min)
+                ax1.set_xlim(5, 35) # Standard Range
                 if np.min(Tb_data) < -200:
                      ax1.set_ylim(np.min(Tb_data)*1.1, 20)
                 else:
@@ -375,48 +377,26 @@ if selected_page == "Home":
                 ax1.legend(loc='lower right')
 
                 # Plot 2: xHI
-                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
+                ax2.plot(x_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label='Neutral Fraction ($x_{HI}$)')
                 ax2.set_ylabel(r"$x_{HI}$", fontsize=12)
                 ax2.set_ylim(-0.1, 1.1)
-                ax2.set_xlim(freq_max, freq_min)
+                ax2.set_xlim(5, 35)
                 ax2.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax2.legend(loc='lower right')
 
                 # Plot 3: Thermal History
-                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
-                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
-                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
+                ax3.semilogy(x_axis, Tk_data, color='red', linewidth=2, label='$T_k$ (Gas Temp)')
+                ax3.semilogy(x_axis, Ts_data, color='orange', linewidth=2, label='$T_s$ (Spin Temp)')
+                ax3.semilogy(x_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label='$T_{cmb}$')
 
                 ax3.set_ylabel(r"$Temperature [K]$", fontsize=12)
                 ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
                 ax3.legend(loc='lower right')
-                ax3.set_xlim(freq_max, freq_min)
+                ax3.set_xlim(5, 35)
                 ax3.set_ylim(10**-2,10**4)
-                
-                # --- Primary X-Axis Frequency (Bottom, Linear) ---
                 for ax in [ax1, ax2, ax3]:
-                    ax.set_xlabel(r"Frequency (MHz)", fontsize=12)
-                
-                # --- Secondary X-Axis Redshift (Top, Non-Linear) ---
-                # Conversion functions (Frequency <-> Redshift)
-                def freq_to_z(f):
-                    return (1420.4 / f) - 1
-                
-                def z_to_freq(z):
-                    return 1420.4 / (1 + z)
+                    ax.set_xlabel(r"$Redshift ($z$)$", fontsize=12)
 
-                for ax in [ax1, ax2, ax3]:
-                    secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                    # Only add the label to the top-most plot to avoid clutter
-                    if ax == ax1:
-                        secax.set_xlabel(r"Redshift ($z$)", fontsize=12, labelpad=10)
-                    
-                    # Style the secondary axis to match the dark theme
-                    secax.tick_params(colors='white')
-                    secax.xaxis.label.set_color('white')
-                    for spine in secax.spines.values():
-                        spine.set_color('white')
-                
                 # Dark Theme Styling
                 fig.patch.set_alpha(0.0)
                 for ax in [ax1, ax2, ax3]:
@@ -428,53 +408,10 @@ if selected_page == "Home":
                     for spine in ax.spines.values():
                         spine.set_color('white')
 
-                plt.subplots_adjust(hspace=0.45) # Increased hspace to make room for the new top axes
+                plt.subplots_adjust(hspace=0.25)
                 st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
-
-    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
-    st.write(r"""
-    The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
-    The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
-    """)
-
-    # Scientific Equation
-    st.latex(r"""
-    \delta T_b \approx 27 \, x_{HI} \, (1 + \delta_b) \left( 1 - \frac{T_{CMB}}{T_S} \right) \left( \frac{1+z}{10} \right)^{1/2} \, [\text{mK}]
-    """)
-
-    st.write(r"""
-    Where:
-    - $x_{HI}$ is the neutral hydrogen fraction.
-    - $\delta_b$ is the baryon overdensity.
-    - $z$ is the redshift.
-    - The ratio between  $ T_S $ and  $ T_{CMB} $ determines the signal regime:
-        - **Absorption ($T_S < T_{CMB}$):** Negative signal (Deep trough).
-        - **Emission ($T_S > T_{CMB}$):** Positive signal.
-    """)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.write(r"""
-        The spin temperature ($T_S$) itself is calculated based on its coupling to the CMB radiation, gas collisions, and the local Lyman-$\alpha$ radiation field:
-        """)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.latex(r"""
-        T_S^{-1} = \frac{T_{CMB}^{-1} + x_c T_k^{-1} + x_\alpha T_\alpha^{-1}}{1 + x_c + x_\alpha}
-        """)
-
-    st.write(r"""
-        Where:
-        - $x_c$ is the collisional coupling coefficient.
-        - $x_\alpha$ is the Wouthuysen-Field (Lyman-$\alpha$) coupling coefficient.
-        - $T_k$ is the kinetic temperature of the gas.
-        - $T_\alpha$ is the color temperature of the radiation field (typically $T_\alpha \approx T_k$).
-        """)
-
-    st.markdown("---")
 
 elif selected_page == "Cosmological Parameters":
     st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold;'>Cosmological Parameters</div>", unsafe_allow_html=True)
@@ -508,7 +445,7 @@ elif selected_page == "Cosmological Parameters":
         border-radius: 12px;
         margin-bottom: 25px;
         border: 1px solid rgba(255,255,255,0.1);
-        height: 165px; /* Fixed height so all boxes are exactly the same size */
+        height: 250px; /* Fixed height so all boxes are exactly the same size */
         box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         transition: transform 0.3s ease, box-shadow 0.3s ease;
         overflow: hidden; /* Prevent text spilling if it's too long */
@@ -518,7 +455,7 @@ elif selected_page == "Cosmological Parameters":
         box-shadow: 0 8px 15px rgba(0,0,0,0.4);
     }
     .param-card-title {
-        font-size: 1.15rem;
+        font-size: 1.35rem;
         font-weight: bold;
         margin-bottom: 12px;
         border-bottom: 1px solid rgba(255,255,255,0.2);
@@ -526,7 +463,7 @@ elif selected_page == "Cosmological Parameters":
         color: white;
     }
     .param-card-desc {
-        font-size: 0.85rem; /* Slightly smaller text to ensure it fits perfectly */
+        font-size: 0.95rem; /* Slightly smaller text to ensure it fits perfectly */
         color: #e5e7eb;
         line-height: 1.5;
     }
@@ -534,8 +471,8 @@ elif selected_page == "Cosmological Parameters":
         font-size: 1.8rem;
         font-weight: 600;
         color: white;
-        margin-top: 10px;
-        margin-bottom: 10px;
+        margin-top: 30px;
+        margin-bottom: 15px;
         padding-bottom: 5px;
         border-bottom: 2px solid rgba(255,255,255,0.3);
     }
@@ -592,3 +529,98 @@ elif selected_page == "Cosmological Parameters":
                 </div>
                 """, unsafe_allow_html=True)
 
+elif selected_page == "Relevant Degeneracies":
+    st.title("Relevant Degeneracies")
+
+    col_deg_controls, col_deg_plot = st.columns([1, 2])
+
+    with col_deg_controls:
+        st.subheader("Parameter Selection" , anchor=False)
+        # Ensure emulator is loaded
+        if 'emulator_loaded' not in st.session_state:
+             emulator = load_emulator_system_v5(MODEL_DIR, MODEL_NAME)
+             st.session_state['emulator_loaded'] = emulator
+        else:
+             emulator = st.session_state['emulator_loaded']
+
+        if emulator:
+            # Helper to find raw name from label key
+            # We assume PARAM_LABELS keys match segments of raw names if exact match fails, 
+            # but here we can try to use the raw names from the emulator directly if we can map them.
+            # Simpler approach: Use the keys from PARAM_LABELS for the dropdown, 
+            # and find the corresponding index in the emulator.
+            
+            # Create a reverse mapping or just list available options
+            param_options = list(PARAM_LABELS.keys())
+            
+            x_param_key = st.selectbox("Select X-Axis Parameter", param_options, index=0)
+            y_param_key = st.selectbox("Select Y-Axis Parameter", param_options, index=1)
+            
+            st.markdown("---")
+            st.subheader("Control Values" , anchor=False)
+            
+            # Find indices in emulator
+            raw_names = [p.decode('utf-8') if isinstance(p, bytes) else str(p) for p in emulator.param_names]
+            
+            # Helper to find index by fuzzy matching the key
+            def get_param_index(key, names):
+                for idx, name in enumerate(names):
+                    if key in name: # Simple containment check
+                        return idx
+                return 0 # Default fallback
+            
+            x_idx = get_param_index(x_param_key, raw_names)
+            y_idx = get_param_index(y_param_key, raw_names)
+            
+            x_min, x_max = emulator.tr_params_min[x_idx], emulator.tr_params_max[x_idx]
+            y_min, y_max = emulator.tr_params_min[y_idx], emulator.tr_params_max[y_idx]
+
+            # Sliders
+            x_val = st.slider(f"{PARAM_LABELS[x_param_key]} Value", float(x_min), float(x_max), float((x_min+x_max)/2.0))
+            y_val = st.slider(f"{PARAM_LABELS[y_param_key]} Value", float(y_min), float(y_max), float((y_min+y_max)/2.0))
+
+            with col_deg_plot:
+                st.subheader("Likelihood Map", anchor=False)
+                
+                # Mock Probability Map (Gaussian)
+                xx = np.linspace(x_min, x_max, 100)
+                yy = np.linspace(y_min, y_max, 100)
+                X, Y = np.meshgrid(xx, yy)
+                
+                mu_x = (x_min + x_max) / 2
+                mu_y = (y_min + y_max) / 2
+                sigma_x = (x_max - x_min) / 5
+                sigma_y = (y_max - y_min) / 5
+                
+                Z = np.exp(-((X - mu_x)**2 / (2 * sigma_x**2) + (Y - mu_y)**2 / (2 * sigma_y**2)))
+                
+                fig, ax = plt.subplots(figsize=(6, 5))
+                
+                # Heatmap
+                im = ax.imshow(Z, extent=[x_min, x_max, y_min, y_max], origin='lower', cmap='viridis', aspect='auto')
+                plt.colorbar(im, ax=ax, label='Likelihood')
+                
+                # Current Position Marker
+                ax.scatter(x_val, y_val, color='red', s=100, edgecolors='white', label='Current Model', zorder=10)
+                
+                # Styling
+                ax.set_xlabel(PARAM_LABELS[x_param_key], fontsize=12)
+                ax.set_ylabel(PARAM_LABELS[y_param_key], fontsize=12)
+                ax.set_title(f"Correlation: {PARAM_LABELS[x_param_key]} vs {PARAM_LABELS[y_param_key]}", fontsize=14)
+                ax.legend()
+                ax.grid(True, linestyle='--', alpha=0.3)
+                
+                st.pyplot(fig)
+                
+                st.info("The background map currently shows a simulated Gaussian distribution. This will be replaced by real likelihood data.")
+        else:
+            st.error("Emulator not loaded.")
+
+elif selected_page == "About Us":
+    st.title("About Us")
+    st.write("We are a research team dedicated to exploring the Epoch of Reionization.")
+
+elif selected_page == "Credits":
+    st.title("Credits & Acknowledgements")
+    st.write("Special thanks to our supervisor and the open-source community.")
+    st.write("Powered by Streamlit, TensorFlow, and Python.")
