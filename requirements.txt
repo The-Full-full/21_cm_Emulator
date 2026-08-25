@@ -1,4 +1,4 @@
-﻿#Core application framework
+#Core application framework
 streamlit==1.54.0
 
 #Data manipulation and mathematical operations
@@ -13,6 +13,11 @@ tensorflow
 h5py
 
 #Specific Dependency rules
-typing-extensions<4.6.0
+#typing-extensions<4.6.0
 
 scipy
+
+streamlit-vertical-slider
+plotly
+
+tf-keras
