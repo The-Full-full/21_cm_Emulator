@@ -874,7 +874,7 @@ elif selected_page == "Relevant Degeneracies":
             st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
 
             # Interactive Map Instruction
-            st.markdown("<div style='text-align: center; color: #a78bfa; font-size: 1.1em; margin-bottom: 5px; margin-top: 5px; font-weight: bold;'> Click anywhere on the map to set the parameters!</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; color: #a78bfa; font-size: 1.1em; margin-bottom: 5px; margin-top: 5px; font-weight: bold;'>Click anywhere on the map to set the parameters!</div>", unsafe_allow_html=True)
 
             # Render Chart and Capture Events
             event = st.plotly_chart(
