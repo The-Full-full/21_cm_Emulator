@@ -638,23 +638,27 @@ elif selected_page == "Relevant Degeneracies":
     def load_real_mcmc_samples(pair_name):
         import pickle
         import os
+        import glob
         
         # Try to load pre-calculated NPY files first (cloud-friendly)
+        npy_path = None
         if pair_name == "f_esc vs f_star":
             npy_path = "f_esc_vs_f_star_filled.npy"
-            if os.path.exists(npy_path):
-                filled_data = np.load(npy_path)
-                return filled_data[:, 0], filled_data[:, 1]
         elif pair_name == "f_star vs L_X":
             npy_path = "f_star_vs_L_X_filled.npy"
-            if os.path.exists(npy_path):
-                filled_data = np.load(npy_path)
-                return filled_data[:, 0], filled_data[:, 1]
         else:  # f_esc vs L_X
             npy_path = "f_esc_vs_L_X_filled.npy"
-            if os.path.exists(npy_path):
+            
+        if npy_path and os.path.exists(npy_path):
+            try:
                 filled_data = np.load(npy_path)
                 return filled_data[:, 0], filled_data[:, 1]
+            except Exception as e:
+                st.error(f"Error loading {npy_path}: {e}")
+        else:
+            # DEBUGGING: Print all npy files in the directory to see what actually exists on the server!
+            all_npy_files = glob.glob("*.npy")
+            st.error(f"Expected to find {npy_path}, but it doesn't exist on the server. Available NPY files: {all_npy_files}")
                 
         # Fallback to raw .pk file
         mcmc_file_path = "MCMC_2023-08-09_all_fields_mini.pk"
