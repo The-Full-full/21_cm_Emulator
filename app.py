@@ -145,6 +145,11 @@ div[data-testid="stElementContainer"]:has([data-testid="stRadio"]) {
     font-weight: bold !important;
 }
 
+/* Prevent infinite stretching on ultrawide monitors to strictly maintain container ratios */
+.main .block-container {
+    max-width: 1400px !important;
+}
+
 /* --- COMPACT SLIDERS & BUTTONS --- */
 /* Reduce internal padding and margins for each individual slider widget */
 div[data-testid="stSlider"] {
@@ -153,71 +158,12 @@ div[data-testid="stSlider"] {
     margin-bottom: -15px !important;
 }
 
-/* Align degeneracy X sliders with Plotly plot area (exactly matching the 310px plot width starting at 50px) */
-.st-key-degen_slider_f_esc_vs_f_star_x [data-testid="stSlider"],
-.st-key-degen_slider_f_star_vs_L_X_x [data-testid="stSlider"],
-.st-key-degen_slider_f_esc_vs_L_X_x [data-testid="stSlider"] {
-    width: 330px !important;
-    margin-left: 40px !important;
-}
-
-/* Align vertical sliders to the left of the right column so they are close to the chart right border */
-.st-key-degen_slider_f_esc_vs_f_star_y,
-.st-key-degen_slider_f_star_vs_L_X_y,
-.st-key-degen_slider_f_esc_vs_L_X_y {
-    display: flex !important;
-    justify-content: flex-start !important;
-    padding-left: 5px !important;
-    margin-left: -20px !important;
-}
-
-/* Force Plotly chart containers to have a constant height and width to completely eliminate resizing/flicker */
-.st-key-plotly_f_esc_vs_f_star,
-.st-key-plotly_f_star_vs_L_X,
-.st-key-plotly_f_esc_vs_L_X {
-    width: 380px !important;
-    height: 380px !important;
-    overflow: hidden !important;
-}
-
-/* Prevent the column containing the chart from expanding or shrinking so it stays glued to the vertical slider */
-div[data-testid="column"]:has(.st-key-plotly_f_esc_vs_f_star),
-div[data-testid="column"]:has(.st-key-plotly_f_star_vs_L_X),
-div[data-testid="column"]:has(.st-key-plotly_f_esc_vs_L_X) {
-    min-width: 380px !important;
-    max-width: 380px !important;
-    flex: 0 0 380px !important;
-    overflow: visible !important;
-}
-
-/* Fix the vertical slider column width */
-div[data-testid="column"]:has(.st-key-degen_slider_f_esc_vs_f_star_y),
-div[data-testid="column"]:has(.st-key-degen_slider_f_star_vs_L_X_y),
-div[data-testid="column"]:has(.st-key-degen_slider_f_esc_vs_L_X_y) {
-    min-width: 70px !important;
-    max-width: 70px !important;
-    flex: 0 0 70px !important;
-}
-
-.st-key-plotly_f_esc_vs_f_star > div,
-.st-key-plotly_f_star_vs_L_X > div,
-.st-key-plotly_f_esc_vs_L_X > div,
-.st-key-plotly_f_esc_vs_f_star > div > div,
-.st-key-plotly_f_star_vs_L_X > div > div,
-.st-key-plotly_f_esc_vs_L_X > div > div {
-    width: 380px !important;
-    height: 380px !important;
-    overflow: hidden !important;
-}
-
-/* Ensure component iframes have a completely transparent background and don't block clicks on the graph */
-.st-key-degen_slider_f_esc_vs_f_star_y iframe,
-.st-key-degen_slider_f_star_vs_L_X_y iframe,
-.st-key-degen_slider_f_esc_vs_L_X_y iframe {
-    background-color: transparent !important;
-    background: transparent !important;
-    border: none !important;
-    width: 70px !important;
+/* Force Plotly chart to be a perfect responsive square that fills the column */
+.st-key-plotly_f_esc_vs_f_star_v6 iframe,
+.st-key-plotly_f_star_vs_L_X_v6 iframe,
+.st-key-plotly_f_esc_vs_L_X_v6 iframe {
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
 }
 
 /* Custom Reset Button Styling */
@@ -738,7 +684,7 @@ elif selected_page == "Relevant Degeneracies":
     # --- 3. PARAMETER PAIR SELECTOR ---
     st.markdown('<span id="param-radio-marker"></span>', unsafe_allow_html=True)
     degen_pair = st.radio(
-        r"$\text{Select Parameter Pair to Analyze Degeneracy:}$",
+        "Select Parameter Pair to Analyze Degeneracy:",
         ["f_esc vs f_star", "f_star vs L_X", "f_esc vs L_X"],
         format_func=format_pair,
         horizontal=True
@@ -801,182 +747,131 @@ elif selected_page == "Relevant Degeneracies":
     x_current = st.session_state[x_key]
     y_current = st.session_state[y_key]
 
-    # Calculate 2D density grid for the Heatmap (using updated ranges)
-    bins = 40
-    hist, x_edges, y_edges = np.histogram2d(x_data, y_data, bins=bins, range=[[x_min, x_max], [y_min, y_max]])
-    
-    from scipy.ndimage import gaussian_filter
-    hist = gaussian_filter(hist, sigma=1.0)
-    
-    x_centers = (x_edges[:-1] + x_edges[1:]) / 2.0
-    y_centers = (y_edges[:-1] + y_edges[1:]) / 2.0
-    z_data = hist.T
+    x_key = f"degen_val_{x_label_pure}" # Not used directly, overridden above
 
-    # Create Plotly density plot
+    @st.cache_data(show_spinner=False)
+    def get_cached_plotly_base(degen_pair_name, min_x, max_x, min_y, max_y, xlabel, ylabel):
+        import plotly.graph_objects as go
+        from scipy.ndimage import gaussian_filter
+        import copy
+        
+        # Calculate 2D density grid for the Heatmap
+        x_d, y_d = load_real_mcmc_samples(degen_pair_name)
+        bins = 40
+        h, x_edges, y_edges = np.histogram2d(x_d, y_d, bins=bins, range=[[min_x, max_x], [min_y, max_y]])
+        h = gaussian_filter(h, sigma=1.0)
+        
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2.0
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2.0
+        z_data = h.T
+
+        base_fig = go.Figure()
+
+        custom_blues = [
+            [0.0, 'rgba(0, 0, 0, 0.0)'],       
+            [0.1, 'rgba(30, 58, 138, 0.15)'],   
+            [0.3, 'rgba(29, 78, 216, 0.4)'],    
+            [0.6, 'rgba(59, 130, 246, 0.7)'],   
+            [1.0, 'rgba(147, 197, 253, 0.95)']  
+        ]
+
+        # Add 2D density Heatmap
+        base_fig.add_trace(go.Heatmap(
+            x=x_centers, y=y_centers, z=z_data,
+            colorscale=custom_blues, showscale=False,
+            hoverinfo='skip', zsmooth='best'
+        ))
+
+        # Add 2D density contours
+        base_fig.add_trace(go.Contour(
+            x=x_centers, y=y_centers, z=z_data,
+            name='Contour Lines', contours=dict(coloring='none'),
+            line=dict(width=1.5, color='rgba(56, 189, 248, 0.8)'),
+            ncontours=8, hoverinfo='skip'
+        ))
+
+        # Generate a dense grid of invisible points to capture click events anywhere
+        x_grid = np.linspace(min_x, max_x, 150)
+        y_grid = np.linspace(min_y, max_y, 150)
+        xx, yy = np.meshgrid(x_grid, y_grid)
+        
+        base_fig.add_trace(go.Scatter(
+            x=xx.flatten(), y=yy.flatten(),
+            mode='markers',
+            marker=dict(color='rgba(0,0,0,0)', size=15, symbol='square'),
+            hoverinfo='none', showlegend=False, name='click_grid'
+        ))
+
+        # Style Plotly figure
+        base_fig.update_layout(
+            autosize=True,
+            xaxis_title=xlabel,
+            yaxis_title=ylabel,
+            template='plotly_dark',
+            plot_bgcolor='rgba(0,0,0,0.5)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=50, r=50, t=50, b=50), # Exact symmetric margins for perfect square
+            showlegend=True,
+            legend=dict(
+                x=0.02, y=0.17,
+                xanchor='left', yanchor='top',
+                bgcolor='rgba(0,0,0,0.5)',
+                bordercolor='rgba(255,255,255,0.2)',
+                borderwidth=1
+            ),
+            xaxis=dict(
+                automargin=False, 
+                gridcolor='rgba(255,255,255,0.1)', 
+                zeroline=False, fixedrange=True, showline=True,
+                linewidth=2, linecolor='white', mirror=True, range=[min_x, max_x]
+            ),
+            yaxis=dict(
+                automargin=False, 
+                gridcolor='rgba(255,255,255,0.1)', 
+                zeroline=False, fixedrange=True, showline=True,
+                linewidth=2, linecolor='white', mirror=True, range=[min_y, max_y],
+                scaleanchor="x", scaleratio=1
+            )
+        )
+        return base_fig
+        
+    import copy
     import plotly.graph_objects as go
-    fig = go.Figure()
-
-    custom_blues = [
-        [0.0, 'rgba(0, 0, 0, 0.0)'],       # Fully transparent for zero density
-        [0.1, 'rgba(30, 58, 138, 0.15)'],   # Very dark blue/indigo
-        [0.3, 'rgba(29, 78, 216, 0.4)'],    # Medium blue
-        [0.6, 'rgba(59, 130, 246, 0.7)'],   # Bright blue
-        [1.0, 'rgba(147, 197, 253, 0.95)']  # White-blue
-    ]
-
-    # Add 2D density Heatmap for full bounding-box clickability
-    fig.add_trace(go.Heatmap(
-        x=x_centers,
-        y=y_centers,
-        z=z_data,
-        colorscale=custom_blues,
-        showscale=False,
-        hoverinfo='skip',
-        zsmooth='best'
-    ))
-
-    # Add 2D density contours (lines only) on top - correctly using the grid z_data
-    fig.add_trace(go.Contour(
-        x=x_centers,
-        y=y_centers,
-        z=z_data,
-        name='Contour Lines',
-        contours=dict(coloring='none'),
-        line=dict(width=1.5, color='rgba(56, 189, 248, 0.8)'),
-        ncontours=8,
-        hoverinfo='skip'
-    ))
-
-    # Generate a dense grid of invisible points to capture click events anywhere on the plot
-    x_grid = np.linspace(x_min, x_max, 80)
-    y_grid = np.linspace(y_min, y_max, 80)
-    xx, yy = np.meshgrid(x_grid, y_grid)
-    xx = xx.flatten()
-    yy = yy.flatten()
-
-    fig.add_trace(go.Scatter(
-        x=xx,
-        y=yy,
-        mode='markers',
-        marker=dict(
-            color='rgba(0,0,0,0)',  # fully transparent
-            size=15,                # slightly larger to prevent gaps
-            symbol='square'
-        ),
-        hoverinfo='skip',
-        showlegend=False,
-        name='click_grid'
-    ))
+    fig = copy.deepcopy(get_cached_plotly_base(degen_pair, x_min, x_max, y_min, y_max, x_label, y_label))
 
     # Add red marker for currently selected point
     fig.add_trace(go.Scatter(
         x=[x_current],
         y=[y_current],
         mode='markers',
-        marker=dict(color='red', size=15, symbol='cross', line=dict(color='white', width=2)),
+        marker=dict(color='red', size=9, symbol='circle', line=dict(color='white', width=1.5)),
         name='Active Coordinate',
         hoverinfo='all'
     ))
 
-    # Style Plotly figure (disable zoom, pan, and dragging, add white borders, fixed size 380x380, legend inside)
-    fig.update_layout(
-        autosize=True,
-        xaxis_title=x_label,
-        yaxis_title=y_label,
-        template='plotly_dark',
-        plot_bgcolor='rgba(0,0,0,0.5)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(l=50, r=20, t=20, b=50), # Set top margin to 20, left margin to 50, bottom to 50, right to 20
-        height=450,
-        showlegend=True,
-        legend=dict(
-            x=0.02,
-            y=0.17,
-            xanchor='left',
-            yanchor='top',
-            bgcolor='rgba(0,0,0,0.5)',
-            bordercolor='rgba(255,255,255,0.2)',
-            borderwidth=1
-        ),
-        xaxis=dict(
-            automargin=False, # Disable auto-margins to prevent visual layout shifts
-            gridcolor='rgba(255,255,255,0.1)', 
-            zeroline=False, 
-            fixedrange=True,
-            showline=True,
-            linewidth=2,
-            linecolor='white',
-            mirror=True, # Draw top boundary box line
-            range=[x_min, x_max]
-        ),
-        yaxis=dict(
-            automargin=False, # Disable auto-margins to prevent visual layout shifts
-            gridcolor='rgba(255,255,255,0.1)', 
-            zeroline=False, 
-            fixedrange=True,
-            showline=True,
-            linewidth=2,
-            linecolor='white',
-            mirror=True, # Draw right boundary box line
-            range=[y_min, y_max]
-        ),
-        dragmode=False, # Disable all dragging (makes it click-only)
-        clickmode='event+select'
-    )
-
     # --- 4. LAYOUT CREATION ---
-    col_plot, col_predict = st.columns([1.1, 1.5], gap="medium")
+    col_plot, col_predict = st.columns([1.0, 1.5], gap="medium")
 
     with col_plot:
-        with st.container(border=True, height=700):
+        st.markdown("<div class='col-plot-anchor'></div>", unsafe_allow_html=True)
+        with st.container(height=750, border=True):
             st.subheader("2D Posterior Degeneracy Map", anchor=False)
 
-            # Active Parameter values readout (Placed outside columns so it doesn't push the chart down unevenly on small screens)
+            # Active Parameter values readout
             st.latex(rf"\small \color{{#a78bfa}} {x_label_pure}: \,\, \color{{white}} {x_current:.2f} \quad | \quad \color{{#a78bfa}} {y_label_pure}: \,\, \color{{white}} {y_current:.2f}")
 
-            # Top Row: X-slider only
-            col_x_slider, _ = st.columns([0.88, 0.12], gap="small")
-            with col_x_slider:
-                val_x = st.slider(
-                    label="x_slider", 
-                    min_value=x_min, 
-                    max_value=x_max, 
-                    step=0.01 if "L_X" not in x_label else 0.05, 
-                    key=slider_x_key, 
-                    value=float(x_current),
-                    label_visibility="collapsed" # Hide native label to keep it clean
-                )
+            # Interactive Map Instruction
+            st.markdown("<div style='text-align: center; color: #a78bfa; font-size: 1.1em; margin-bottom: 5px; margin-top: 5px; font-weight: bold;'>👆 Click anywhere on the map to set the parameters!</div>", unsafe_allow_html=True)
 
-            # Bottom Row: Chart and Y-slider
-            col_chart, col_slider_y = st.columns([0.88, 0.12], gap="small")
-            
-            with col_chart:
-                # Render Chart and Capture Events
-                event = st.plotly_chart(
-                    fig, 
-                    on_select="rerun", 
-                    selection_mode="points",
-                    use_container_width=True,
-                    key=f"plotly_{key_degen_pair}", 
-                    config={'displayModeBar': False, 'scrollZoom': False}
-                )
-
-            with col_slider_y:
-                # The chart has an internal top margin of 20px. We match this exactly so the slider perfectly aligns with the plot area!
-                st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-                from streamlit_vertical_slider import vertical_slider
-                val_y = vertical_slider(
-                    label="",
-                    min_value=float(y_min),
-                    max_value=float(y_max),
-                    step=0.01,
-                    key=slider_y_key,
-                    default_value=float(y_current),
-                    slider_color="#9159ff",
-                    track_color="#555555",
-                    thumb_color="white",
-                    height=310
-                )
+            # Render Chart and Capture Events
+            event = st.plotly_chart(
+                fig, 
+                on_select="rerun", 
+                selection_mode="points",
+                use_container_width=True,
+                key=f"plotly_{key_degen_pair}_v6", 
+                config={'displayModeBar': False, 'scrollZoom': False}
+            )
 
             # Check and handle click events (requires rerun to sync coordinates to slider defaults)
             if event:
@@ -1003,8 +898,9 @@ elif selected_page == "Relevant Degeneracies":
                             y_coords = [p.y for p in points if hasattr(p, "y") and p.y is not None]
                         
                         if len(x_coords) > 0 and len(y_coords) > 0:
-                            click_x = np.mean(x_coords)
-                            click_y = np.mean(y_coords)
+                            # Apply a tiny offset (-0.035) down and left to correct visual pointer hotspot illusion
+                            click_x = np.mean(x_coords) - 0.035
+                            click_y = np.mean(y_coords) - 0.035
                             st.session_state[x_key] = float(click_x)
                             st.session_state[y_key] = float(click_y)
                             st.session_state[slider_x_key] = float(click_x)
@@ -1012,10 +908,11 @@ elif selected_page == "Relevant Degeneracies":
                             st.rerun()
 
     with col_predict:
-        with st.container(border=True, height=700):
+        st.markdown("<div class='col-plot-anchor'></div>", unsafe_allow_html=True)
+        with st.container(height=750, border=True):
             st.subheader("Global Signal Prediction", anchor=False)
             # Spacer to align the top of the Matplotlib prediction plot exactly with the top of the Plotly plot
-            st.markdown("<div style='height: 65px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
 
             # Build input vector for emulator
             degen_input = np.zeros((1, num_params))
@@ -1071,8 +968,8 @@ elif selected_page == "Relevant Degeneracies":
                 freq_min = 1420.4 / (1 + 35)
                 freq_max = 1420.4 / (1 + 5)
 
-                # Plot Tb using Matplotlib (rectangular shape with height reduced to 310px)
-                fig_pred, ax = plt.subplots(figsize=(8.0, 4.0), dpi=100)
+                # Plot Tb using Matplotlib
+                fig_pred, ax = plt.subplots(figsize=(7.5, 5.0), dpi=100)
                 ax.plot(freq_axis_degen, degen_Tb, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temp} \,\, (\delta T_b)$')
                 ax.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
                 ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
@@ -1103,8 +1000,7 @@ elif selected_page == "Relevant Degeneracies":
                 for spine in ax.spines.values():
                     spine.set_color('white')
 
-                st.pyplot(fig_pred, use_container_width=False)
-
+                st.pyplot(fig_pred, use_container_width=True)
             except Exception as e:
                 st.error(f"Inference failed: {e}")
 
@@ -1226,9 +1122,9 @@ elif selected_page == "About Us":
         st.markdown("""
         <div class="about-card">
             <div class="about-info">
-                <div class="about-name">Roy</div>
+                <div class="about-name">Roy Badash</div>
                 <div class="about-desc">
-                    seconed year 
+                    Roy is a second-year Physics undergraduate at Ben-Gurion University with a strong passion for astrophysics and cosmology. 
                 </div>
             </div>
             <div class="about-img-container">
@@ -1242,9 +1138,9 @@ elif selected_page == "About Us":
         st.markdown("""
         <div class="about-card">
             <div class="about-info">
-                <div class="about-name">Ron</div>
+                <div class="about-name">Ron Rapoport</div>
                 <div class="about-desc">
-                    seconed year 
+                    Ron is a second-year Physics undergraduate at Ben-Gurion University with a strong passion for astrophysics and cosmology. 
                 </div>
             </div>
             <div class="about-img-container">
@@ -1295,8 +1191,8 @@ elif selected_page == "Credits":
     <div class="credit-section">
         <div class="credit-title">Academic Guidance & Mentorship</div>
         <div class="credit-text">
-            We would like to express our deepest gratitude to our lecturer, <span class="credit-highlight">Ilai</span>, 
-            and our doctoral instructor, <span class="credit-highlight">Hovav</span>. 
+            We would like to express our deepest gratitude to our lecturer, <span class="credit-highlight">Ely Kovetz</span>, 
+            and our doctoral instructor, <span class="credit-highlight">Hovav Lazare</span>. 
             Their guidance, expertise, and continuous feedback were invaluable to the success of this project.
         </div>
     </div>
@@ -1306,7 +1202,7 @@ elif selected_page == "Credits":
         <div class="credit-text">
             This interactive web application was brought to life using <span class="credit-highlight">Streamlit</span>. 
             The underlying Deep Neural Network, which enables real-time inferences of the 21cm Global Signal, 
-            was built using <span class="credit-highlight">TensorFlow / Keras</span>, along with robust data processing 
+            was built using <span class="credit-highlight">TensorFlow + Keras</span>, along with robust data processing 
             from <span class="credit-highlight">NumPy</span> and <span class="credit-highlight">SciPy</span>.
         </div>
     </div>
