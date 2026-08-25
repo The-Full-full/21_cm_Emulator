@@ -638,30 +638,39 @@ elif selected_page == "Relevant Degeneracies":
     def load_real_mcmc_samples(pair_name):
         import pickle
         import os
-        mcmc_file_path = "MCMC_2023-08-09_all_fields_mini.pk"
-        if not os.path.exists(mcmc_file_path):
-            st.error(f"Data file {mcmc_file_path} not found.")
-            return np.array([]), np.array([])
-        with open(mcmc_file_path, "rb") as f:
-            data = pickle.load(f)
-        # Columns mapping based on MCMC analysis: 0: f_star, 4: f_esc, 7: L_X
+        
+        # Try to load pre-calculated NPY files first (cloud-friendly)
         if pair_name == "f_esc vs f_star":
             npy_path = "f_esc_vs_f_star_filled.npy"
             if os.path.exists(npy_path):
                 filled_data = np.load(npy_path)
                 return filled_data[:, 0], filled_data[:, 1]
-            return data[:, 0], data[:, 4]
         elif pair_name == "f_star vs L_X":
             npy_path = "f_star_vs_L_X_filled.npy"
             if os.path.exists(npy_path):
                 filled_data = np.load(npy_path)
                 return filled_data[:, 0], filled_data[:, 1]
-            return data[:, 0], data[:, 7]
         else:  # f_esc vs L_X
             npy_path = "f_esc_vs_L_X_filled.npy"
             if os.path.exists(npy_path):
                 filled_data = np.load(npy_path)
                 return filled_data[:, 0], filled_data[:, 1]
+                
+        # Fallback to raw .pk file
+        mcmc_file_path = "MCMC_2023-08-09_all_fields_mini.pk"
+        if not os.path.exists(mcmc_file_path):
+            st.error(f"Data file {mcmc_file_path} not found.")
+            return np.array([]), np.array([])
+            
+        with open(mcmc_file_path, "rb") as f:
+            data = pickle.load(f)
+            
+        # Columns mapping based on MCMC analysis: 0: f_star, 4: f_esc, 7: L_X
+        if pair_name == "f_esc vs f_star":
+            return data[:, 0], data[:, 4]
+        elif pair_name == "f_star vs L_X":
+            return data[:, 0], data[:, 7]
+        else:
             return data[:, 7], data[:, 4]
 
     # --- 2. INITIALIZE SESSION STATE ---
