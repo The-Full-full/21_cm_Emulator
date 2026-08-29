@@ -186,6 +186,11 @@ div[data-testid="stButton"] button:active {
     background-color: rgba(255, 255, 255, 0.2) !important;
 
 }
+
+/* Hide Streamlit Fullscreen Buttons */
+button[title="View fullscreen"] {
+    display: none !important;
+}
 </style>
 """
 st.markdown(page_bg_img, unsafe_allow_html=True)
