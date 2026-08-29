@@ -188,8 +188,12 @@ div[data-testid="stButton"] button:active {
 }
 
 /* Hide Streamlit Fullscreen Buttons */
-button[title="View fullscreen"] {
+button[title="View fullscreen"],
+button[title="Fullscreen"],
+[data-testid="StyledFullScreenButton"] {
     display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
 }
 </style>
 """
