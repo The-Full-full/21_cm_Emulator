@@ -211,7 +211,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us"]
+nav_options = ["Home", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -449,7 +449,8 @@ if selected_page == "Home":
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
 
-    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px;'>Theoretical Framework</div>", unsafe_allow_html=True)
+elif selected_page == "Astrophysical Parameters":
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; margin-top: 20px;'>Theoretical Framework</div>", unsafe_allow_html=True)
     st.write(r"""
     The observable quantity is the differential brightness temperature, $\delta T_b$, defined relative to the Cosmic Microwave Background (CMB). 
     The physics of the signal is governed by the contrast between the hydrogen spin temperature ($T_S$) and the background CMB temperature ($T_{CMB}$):
@@ -491,10 +492,10 @@ if selected_page == "Home":
         """)
 
     st.markdown("---")
-
-elif selected_page == "Cosmological Parameters":
-    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold;'>Cosmological Parameters</div>", unsafe_allow_html=True)
-    st.markdown("<div style='text-align: center; font-size: 1.2rem; margin-top: 10px; margin-bottom: 40px; color: #a9a9a9;'>Physical constants and variables driving the emulator</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='text-align: center; font-size: 1.2rem; margin-top: 10px; margin-bottom: 40px; color: #a9a9a9; font-weight: bold;'>The astrophysical parameters defined below serve as the crucial inputs to these theoretical equations, directly governing the resulting 21-cm signal.<br>By adjusting these parameters in the emulator, you can explore how different physical conditions affect the predicted signal.</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 20px;'>Astrophysical Parameters</div>", unsafe_allow_html=True)
 
     # Group parameters by scientific category to create rows
     param_groups = {
@@ -1074,12 +1075,12 @@ elif selected_page == "Relevant Degeneracies":
             )
         col_idx += 1
 
-elif selected_page == "About Us":
+elif selected_page == "About Us & Credits":
     st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>About Us & Credits</div>", unsafe_allow_html=True)
     
     combined_css = """
     <style>
-    /* About Us CSS */
+    /* About Us & Credits CSS */
     .about-card {
         background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(56, 189, 248, 0.15)); /* Light blue gradient */
         border: 1px solid rgba(56, 189, 248, 0.5);
