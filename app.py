@@ -211,7 +211,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us", "Credits"]
+nav_options = ["Home", "Cosmological Parameters", "Relevant Degeneracies", "About Us"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -735,10 +735,20 @@ elif selected_page == "Relevant Degeneracies":
         x_key = 'degen_val_f_esc'
         y_key = 'degen_val_l_x'
 
-    # Determine the absolute physical boundaries
-    def get_axis_limits(key):
+    # Determine the original physical boundaries for data processing
+    def get_data_limits(key):
         if key == 'degen_val_l_x': return (38.0, 42.0)
         return (-3.0, 0.0) # f_star and f_esc
+
+    # Determine the visual boundaries for the axes (zoomed in)
+    def get_axis_limits(key):
+        if key == 'degen_val_l_x': return (38.0, 42.0)
+        if key == 'degen_val_f_star': return (-2.25, -0.5)
+        if key == 'degen_val_f_esc': return (-2.0, -0.25)
+        return (-3.0, 0.0)
+
+    data_x_min, data_x_max = get_data_limits(x_key)
+    data_y_min, data_y_max = get_data_limits(y_key)
 
     x_min, x_max = get_axis_limits(x_key)
     y_min, y_max = get_axis_limits(y_key)
@@ -763,15 +773,15 @@ elif selected_page == "Relevant Degeneracies":
     x_key = f"degen_val_{x_label_pure}" # Not used directly, overridden above
 
     @st.cache_data(show_spinner=False)
-    def get_cached_plotly_base(degen_pair_name, min_x, max_x, min_y, max_y, xlabel, ylabel):
+    def get_cached_plotly_base(degen_pair_name, min_x, max_x, min_y, max_y, data_x_min, data_x_max, data_y_min, data_y_max, xlabel, ylabel):
         import plotly.graph_objects as go
         from scipy.ndimage import gaussian_filter
         import copy
         
-        # Calculate 2D density grid for the Heatmap
+        # Calculate 2D density grid for the Heatmap using original data boundaries
         x_d, y_d = load_real_mcmc_samples(degen_pair_name)
         bins = 40
-        h, x_edges, y_edges = np.histogram2d(x_d, y_d, bins=bins, range=[[min_x, max_x], [min_y, max_y]])
+        h, x_edges, y_edges = np.histogram2d(x_d, y_d, bins=bins, range=[[data_x_min, data_x_max], [data_y_min, data_y_max]])
         h = gaussian_filter(h, sigma=1.0)
         
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2.0
@@ -850,7 +860,13 @@ elif selected_page == "Relevant Degeneracies":
         
     import copy
     import plotly.graph_objects as go
-    fig = copy.deepcopy(get_cached_plotly_base(degen_pair, x_min, x_max, y_min, y_max, x_label, y_label))
+    # Try to get from cache, or generate if not exists
+    fig = copy.deepcopy(get_cached_plotly_base(
+        degen_pair, 
+        x_min, x_max, y_min, y_max,
+        data_x_min, data_x_max, data_y_min, data_y_max,
+        x_label, y_label
+    ))
 
     # Add red marker for currently selected point
     fig.add_trace(go.Scatter(
@@ -1059,10 +1075,11 @@ elif selected_page == "Relevant Degeneracies":
         col_idx += 1
 
 elif selected_page == "About Us":
-    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>About Us</div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>About Us & Credits</div>", unsafe_allow_html=True)
     
-    about_css = """
+    combined_css = """
     <style>
+    /* About Us CSS */
     .about-card {
         background: linear-gradient(135deg, rgba(14, 165, 233, 0.3), rgba(56, 189, 248, 0.15)); /* Light blue gradient */
         border: 1px solid rgba(56, 189, 248, 0.5);
@@ -1124,9 +1141,39 @@ elif selected_page == "About Us":
             margin-bottom: 20px;
         }
     }
+    
+    /* Credits CSS */
+    .credit-section {
+        background: rgba(255, 255, 255, 0.05);
+        border-left: 5px solid rgba(167, 139, 250, 0.8); /* Purple accent */
+        padding: 20px 25px;
+        margin-bottom: 25px;
+        border-radius: 0 10px 10px 0;
+        transition: background 0.3s ease, transform 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .credit-section:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+    }
+    .credit-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #c4b5fd; /* Light purple */
+        margin-bottom: 10px;
+    }
+    .credit-text {
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.6;
+    }
+    .credit-highlight {
+        font-weight: bold;
+        color: white;
+    }
     </style>
     """
-    st.markdown(about_css, unsafe_allow_html=True)
+    st.markdown(combined_css, unsafe_allow_html=True)
 
     col1, col2 = st.columns(2, gap="large")
 
@@ -1162,43 +1209,7 @@ elif selected_page == "About Us":
         </div>
         """, unsafe_allow_html=True)
 
-
-elif selected_page == "Credits":
-    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>Credits & Acknowledgments</div>", unsafe_allow_html=True)
-
-    credits_css = """
-    <style>
-    .credit-section {
-        background: rgba(255, 255, 255, 0.05);
-        border-left: 5px solid rgba(167, 139, 250, 0.8); /* Purple accent */
-        padding: 20px 25px;
-        margin-bottom: 25px;
-        border-radius: 0 10px 10px 0;
-        transition: background 0.3s ease, transform 0.2s ease;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    .credit-section:hover {
-        background: rgba(255, 255, 255, 0.1);
-        transform: translateX(5px);
-    }
-    .credit-title {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #c4b5fd; /* Light purple */
-        margin-bottom: 10px;
-    }
-    .credit-text {
-        font-size: 1.1rem;
-        color: rgba(255, 255, 255, 0.85);
-        line-height: 1.6;
-    }
-    .credit-highlight {
-        font-weight: bold;
-        color: white;
-    }
-    </style>
-    """
-    st.markdown(credits_css, unsafe_allow_html=True)
+    st.markdown("<div style='text-align: center; font-size: 2rem; font-weight: bold; margin-top: 50px; margin-bottom: 30px;'>Credits & Acknowledgments</div>", unsafe_allow_html=True)
 
     st.markdown("""
     <div class="credit-section">

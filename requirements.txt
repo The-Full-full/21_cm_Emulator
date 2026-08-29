@@ -21,3 +21,4 @@ streamlit-vertical-slider
 plotly
 
 tf-keras
+requests
