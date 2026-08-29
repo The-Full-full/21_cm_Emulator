@@ -190,10 +190,14 @@ div[data-testid="stButton"] button:active {
 /* Hide Streamlit Fullscreen Buttons */
 button[title="View fullscreen"],
 button[title="Fullscreen"],
-[data-testid="StyledFullScreenButton"] {
+[title="View fullscreen"],
+[title="Fullscreen"],
+[data-testid="StyledFullScreenButton"],
+[data-testid="stImage"] button {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
+    pointer-events: none !important;
 }
 </style>
 """
