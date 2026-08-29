@@ -493,6 +493,8 @@ elif selected_page == "Astrophysical Parameters":
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div style='text-align: left; font-size: 1.1rem; color: #a9a9a9; font-weight: bold;'>The astrophysical parameters defined below serve as the crucial inputs to these theoretical equations, directly governing the resulting 21-cm signal.<br>By adjusting these parameters in the emulator, you can explore how different physical conditions affect the predicted signal.</div>", unsafe_allow_html=True)
+    
+    st.markdown("<div style='text-align: left; font-size: 1.0rem; color: #a9a9a9; margin-top: 15px;'><i>For a comprehensive overview of the scientific foundation and deeper insights into the emulator, please refer to the <a href='https://arxiv.org/abs/2307.15577' target='_blank' style='color: #8b5cf6; text-decoration: underline;'>published paper</a>.</i></div>", unsafe_allow_html=True)
 
     st.markdown("---")
     
