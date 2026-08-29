@@ -491,9 +491,10 @@ elif selected_page == "Astrophysical Parameters":
         - $T_\alpha$ is the color temperature of the radiation field (typically $T_\alpha \approx T_k$).
         """)
 
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: left; font-size: 1.1rem; color: #a9a9a9; font-weight: bold;'>The astrophysical parameters defined below serve as the crucial inputs to these theoretical equations, directly governing the resulting 21-cm signal.<br>By adjusting these parameters in the emulator, you can explore how different physical conditions affect the predicted signal.</div>", unsafe_allow_html=True)
+
     st.markdown("---")
-    
-    st.markdown("<div style='text-align: center; font-size: 1.2rem; margin-top: 10px; margin-bottom: 40px; color: #a9a9a9; font-weight: bold;'>The astrophysical parameters defined below serve as the crucial inputs to these theoretical equations, directly governing the resulting 21-cm signal.<br>By adjusting these parameters in the emulator, you can explore how different physical conditions affect the predicted signal.</div>", unsafe_allow_html=True)
     
     st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 20px;'>Astrophysical Parameters</div>", unsafe_allow_html=True)
 
