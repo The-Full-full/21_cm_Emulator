@@ -291,7 +291,7 @@ if selected_page == "Home":
         # to match the approximate height of the 3 graphs on the right side.
         # This prevents the slider column from looking vastly different lengths on different screens,
         # by simply adding an internal scrollbar if it exceeds the height.
-        with st.container(height=650):
+        with st.container(height=690):
             # הוספת anchor=False מבטלת את סמל הקישור שמופיע מתחת לכותרת
             st.subheader("Parameters", anchor=False)
 
