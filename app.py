@@ -224,7 +224,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
+nav_options = ["Home", "Astrophysical Parameters", "Relevant Degeneracies", "About Us"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -1114,8 +1114,8 @@ elif selected_page == "Relevant Degeneracies":
             )
         col_idx += 1
 
-elif selected_page == "About Us & Credits":
-    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>About Us & Credits</div>", unsafe_allow_html=True)
+elif selected_page == "About Us":
+    st.markdown("<div style='text-align: center; font-size: 2.5rem; font-weight: bold; margin-bottom: 30px;'>About Us</div>", unsafe_allow_html=True)
     
     combined_css = """
     <style>
