@@ -187,13 +187,13 @@ div[data-testid="stButton"] button:active {
 
 }
 
-/* Hide Streamlit Fullscreen Buttons */
-button[title="View fullscreen"],
-button[title="Fullscreen"],
-[title="View fullscreen"],
-[title="Fullscreen"],
+/* Hide Streamlit Fullscreen Buttons - Ultimate Aggressive Rules */
+[title*="ullscreen"],
+[title*="ULLSCREEN"],
+[aria-label*="ullscreen"],
 [data-testid="StyledFullScreenButton"],
-[data-testid="stImage"] button {
+[data-testid="stImage"] button,
+[data-testid="stImage"] > div:nth-child(2) {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
