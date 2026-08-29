@@ -354,6 +354,7 @@ if selected_page == "Home":
 
         # --- PLOTTING ---
         st.subheader("Global Signal Prediction", anchor=False)
+        z_primary = st.toggle("Use Redshift (z) as Primary X-Axis", value=False, key="z_primary_home")
 
         # New Model Indices (Verified)
         xHI_index = 0
@@ -390,10 +391,17 @@ if selected_page == "Home":
                 freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
                 freq_max = 1420.4 / (1 + 5)  # approx 236.73 MHz (z=5)
 
+                if z_primary:
+                    x_data = z_axis
+                    x_min, x_max = 35, 5
+                else:
+                    x_data = freq_axis
+                    x_min, x_max = freq_min, freq_max
+
                 # Plot 1: Tb
-                ax1.plot(freq_axis, Tb_data, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temperature} \,\, (\delta T_b)$')
+                ax1.plot(x_data, Tb_data, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temperature} \,\, (\delta T_b)$')
                 ax1.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
-                ax1.set_xlim(freq_max, freq_min)
+                ax1.set_xlim(x_max, x_min)
                 if np.min(Tb_data) < -200:
                      ax1.set_ylim(np.min(Tb_data)*1.1, 20)
                 else:
@@ -404,41 +412,40 @@ if selected_page == "Home":
                 ax1.legend(loc='lower right')
 
                 # Plot 2: xHI
-                ax2.plot(freq_axis, xHI_data, color='CornflowerBlue', linewidth=2.5, label=r'$\rm{Neutral \,\, Fraction} \,\, (x_{\rm{HI}})$')
+                ax2.plot(x_data, xHI_data, color='CornflowerBlue', linewidth=2.5, label=r'$\rm{Neutral \,\, Fraction} \,\, (x_{\rm{HI}})$')
                 ax2.set_ylabel(r"$x_{\rm{HI}}$", fontsize=12)
                 ax2.set_ylim(-0.1, 1.1)
-                ax2.set_xlim(freq_max, freq_min)
+                ax2.set_xlim(x_max, x_min)
                 ax2.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax2.legend(loc='lower right')
 
                 # Plot 3: Thermal History
-                ax3.semilogy(freq_axis, Tk_data, color='red', linewidth=2, label=r'$T_k \,\, \rm{(Gas \,\, Temp)}$')
-                ax3.semilogy(freq_axis, Ts_data, color='orange', linewidth=2, label=r'$T_s \,\, \rm{(Spin \,\, Temp)}$')
-                ax3.semilogy(freq_axis, Tcmb_data, color='white', linestyle='--', linewidth=2, label=r'$T_{\rm{cmb}}$')
+                ax3.semilogy(x_data, Tk_data, color='red', linewidth=2, label=r'$T_k \,\, \rm{(Gas \,\, Temp)}$')
+                ax3.semilogy(x_data, Ts_data, color='orange', linewidth=2, label=r'$T_s \,\, \rm{(Spin \,\, Temp)}$')
+                ax3.semilogy(x_data, Tcmb_data, color='white', linestyle='--', linewidth=2, label=r'$T_{\rm{cmb}}$')
 
                 ax3.set_ylabel(r"$\rm{Temperature \,\, [K]}$", fontsize=12)
                 ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
                 ax3.legend(loc='lower right')
-                ax3.set_xlim(freq_max, freq_min)
+                ax3.set_xlim(x_max, x_min)
                 ax3.set_ylim(10**-2,10**4)
                 
-                # --- Primary X-Axis Frequency (Bottom, Linear) ---
-                for ax in [ax1, ax2, ax3]:
-                    ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
-                
-                # --- Secondary X-Axis Redshift (Top, Non-Linear) ---
                 # Conversion functions (Frequency <-> Redshift)
-                def freq_to_z(f):
-                    return (1420.4 / f) - 1
-                
-                def z_to_freq(z):
-                    return 1420.4 / (1 + z)
+                def freq_to_z(f): return (1420.4 / f) - 1
+                def z_to_freq(z): return 1420.4 / (1 + z)
 
+                # --- Axes labels and Secondary Axis ---
                 for ax in [ax1, ax2, ax3]:
-                    secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
-                    # Only add the label to the top-most plot to avoid clutter
-                    if ax == ax1:
-                        secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
+                    if z_primary:
+                        ax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12)
+                        secax = ax.secondary_xaxis('top', functions=(z_to_freq, freq_to_z))
+                        if ax == ax1:
+                            secax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12, labelpad=10)
+                    else:
+                        ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
+                        secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                        if ax == ax1:
+                            secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
                     
                     # Style the secondary axis to match the dark theme
                     secax.tick_params(colors='white')
@@ -955,8 +962,9 @@ elif selected_page == "Relevant Degeneracies":
         st.markdown("<div class='col-plot-anchor'></div>", unsafe_allow_html=True)
         with st.container(height=750, border=True):
             st.subheader("Global Signal Prediction", anchor=False)
+            z_primary_degen = st.toggle("Use Redshift (z) as Primary X-Axis", value=False, key="z_primary_degen")
             # Spacer to align the top of the Matplotlib prediction plot exactly with the top of the Plotly plot
-            st.markdown("<div style='height: 80px;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
 
             # Build input vector for emulator
             degen_input = np.zeros((1, num_params))
@@ -1012,12 +1020,24 @@ elif selected_page == "Relevant Degeneracies":
                 freq_min = 1420.4 / (1 + 35)
                 freq_max = 1420.4 / (1 + 5)
 
+                if z_primary_degen:
+                    x_data_degen = z_axis_degen
+                    x_min_degen, x_max_degen = 35, 5
+                else:
+                    x_data_degen = freq_axis_degen
+                    x_min_degen, x_max_degen = freq_min, freq_max
+
                 # Plot Tb using Matplotlib
                 fig_pred, ax = plt.subplots(figsize=(7.5, 5.0), dpi=100)
-                ax.plot(freq_axis_degen, degen_Tb, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temp} \,\, (\delta T_b)$')
+                ax.plot(x_data_degen, degen_Tb, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temp} \,\, (\delta T_b)$')
                 ax.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
-                ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
-                ax.set_xlim(freq_max, freq_min)
+                ax.set_xlim(x_max_degen, x_min_degen)
+                
+                if z_primary_degen:
+                    ax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12)
+                else:
+                    ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
+                    
                 if np.min(degen_Tb) < -200:
                     ax.set_ylim(np.min(degen_Tb)*1.1, 20)
                 else:
@@ -1026,9 +1046,14 @@ elif selected_page == "Relevant Degeneracies":
                 ax.grid(True, which='both', linestyle='--', alpha=0.3)
                 ax.legend(loc='lower right')
 
-                # Add Top Redshift Axis
-                secax = ax.secondary_xaxis('top', functions=(freq_to_z_degen, z_to_freq_degen))
-                secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
+                # Add Top Secondary Axis
+                if z_primary_degen:
+                    secax = ax.secondary_xaxis('top', functions=(z_to_freq_degen, freq_to_z_degen))
+                    secax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12, labelpad=10)
+                else:
+                    secax = ax.secondary_xaxis('top', functions=(freq_to_z_degen, z_to_freq_degen))
+                    secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
+                    
                 secax.tick_params(colors='white')
                 secax.xaxis.label.set_color('white')
                 for spine in secax.spines.values():
