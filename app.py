@@ -31,6 +31,32 @@ from scipy.ndimage import gaussian_filter1d
 
 st.set_page_config(layout="wide", page_title="21cm Emulator")
 
+st.markdown('''
+    <style>
+    /* Aggressively target all text inside the slider labels to be white */
+    div[data-testid="stSlider"] {
+        --primary-color: #8b5cf6 !important;
+    }
+    /* Aggressively force the filled (active) slider track to be purple instead of default red */
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div > div:nth-child(2),
+    div[data-testid="stSlider"] div[data-baseweb="slider"] > div > div > div:nth-child(3),
+    div[data-testid="stSlider"] div[data-baseweb="slider"] div[data-testid="stTickBar"] + div {
+        background-color: #8b5cf6 !important;
+    }
+    /* Aggressively target all text inside the slider labels to be white */
+    div[data-testid="stSlider"] label,
+    div[data-testid="stSlider"] p,
+    div[data-testid="stSlider"] span,
+    div[data-testid="stSlider"] .katex,
+    div[data-testid="stSlider"] .katex-html,
+    div[data-testid="stWidgetLabel"] * {
+        color: #ffffff !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Optional: adds contrast */
+    }
+    </style>
+''', unsafe_allow_html=True)
+
+
 # --- 1. CONFIGURATION ---
 # Mandatory: Define Legacy Keras compatibility for the emulator model
 os.environ["TF_USE_LEGACY_KERAS"] = "1"
@@ -224,7 +250,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
+nav_options = ["Home", "Bounds", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -389,11 +415,11 @@ if selected_page == "Home":
                 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
 
                 freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
-                freq_max = 1420.4 / (1 + 5)  # approx 236.73 MHz (z=5)
+                freq_max = 225.0
 
                 if z_primary:
                     x_data = z_axis
-                    x_min, x_max = 35, 5
+                    x_min, x_max = 35, (1420.4 / 225.0 - 1)
                 else:
                     x_data = freq_axis
                     x_min, x_max = freq_min, freq_max
@@ -439,11 +465,13 @@ if selected_page == "Home":
                     if z_primary:
                         ax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12)
                         secax = ax.secondary_xaxis('top', functions=(z_to_freq, freq_to_z))
+                        ax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
                         if ax == ax1:
                             secax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12, labelpad=10)
                     else:
                         ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
                         secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                        secax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
                         if ax == ax1:
                             secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
                     
@@ -468,6 +496,440 @@ if selected_page == "Home":
                 st.pyplot(fig)
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
+
+elif selected_page == "Bounds":
+    
+    # Header (Removed the duplicate main title)
+    st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: 500; margin-top: 10px; margin-bottom: 20px;'>Probing the Cosmic Dawn and Epoch of Reionization</div>", unsafe_allow_html=True)
+
+    st.write("""
+    The 21-cm spectral line, corresponding to a rest-frame frequency of 1420 MHz, arises from the hyperfine transition of the ground state of neutral hydrogen. 
+    This signal serves as a critical probe of the Early Universe, tracing the thermal history and ionization state of the Intergalactic Medium (IGM) from the Dark Ages through the Cosmic Dawn to the Epoch of Reionization (EoR).
+    """)
+
+    # --- INTERACTIVE CONTROL ---
+    st.subheader("Interactive Parameter Exploration" , anchor=False)
+
+    input_vector = np.zeros(num_params)
+
+    # Sliders
+
+    # Create layout: Left (Controls) takes 1 part, Right (Graphs) takes 3 parts
+    col_controls, col_graphs = st.columns([1, 3], gap="medium")
+
+    # --- Left Side: Sliders ---
+    with col_controls:
+        # We put all controls in a container with a fixed height (~850px)
+        # to match the approximate height of the 3 graphs on the right side.
+        # This prevents the slider column from looking vastly different lengths on different screens,
+        # by simply adding an internal scrollbar if it exceeds the height.
+        with st.container(height=690):
+            # הוספת anchor=False מבטלת את סמל הקישור שמופיע מתחת לכותרת
+            st.subheader("Parameters", anchor=False)
+
+            # Reset Button - קיצור הטקסט כדי לתפוס פחות מקום
+            if st.button("Reset Parameters"):
+                for i in range(num_params):
+                    default_val = (min_vals[i] + max_vals[i]) / 2.0
+                    st.session_state[f"slider_bounds_{i}"] = float(default_val)
+            # Sliders Loop - Simpler, in a single column
+            for i in range(num_params):
+                p_name = param_names[i]
+                
+                # Pre-calculate defaults since we might skip the UI render
+                current_min = float(min_vals[i])
+                current_max = float(max_vals[i])
+                current_default = (current_min + current_max) / 2.0
+
+                # Hide unused parameters but keep them in the input vector with default values
+                if p_name in ['R_MFP', 'TAU_E']:
+                    input_vector[i] = current_default
+                    continue
+
+                # (Slider description logic remains the same...)
+                desc_key = p_name.strip()
+                if desc_key not in PARAM_DESCRIPTIONS:
+                    for key in PARAM_DESCRIPTIONS:
+                        if key in desc_key:
+                            desc_key = key
+                            break
+                p_desc = PARAM_DESCRIPTIONS.get(desc_key, f"Adjust {p_name}")
+
+                display_label = PARAM_LABELS.get(desc_key, p_name)
+
+                # Initialize session state for this slider if it doesn't exist
+                # This prevents Streamlit from warning about value conflicts
+                if f"slider_bounds_{i}" not in st.session_state:
+                    st.session_state[f"slider_bounds_{i}"] = float(current_default)
+
+                # --- BOUNDS HIGHLIGHTING INJECTION ---
+                bounds_dict = {
+                    'F_STAR10': (-1.69, -1.03),
+                    'ALPHA_STAR': (0.44, 0.58),
+                    'F_ESC10': (-1.37, -0.50),
+                    'ALPHA_ESC': (-0.39, 0.38),
+                    'M_TURN': (8.19, 9.05),
+                    't_STAR': (0.18, 0.83),
+                    'L_X': (40.21, 41.67),
+                    'NU_X_THRESH': (0.29, 1.22),
+                    'X_RAY_SPEC_INDEX': (-0.30, 2.41)
+                }
+                
+                if p_name in bounds_dict:
+                    b_min, b_max = bounds_dict[p_name]
+                    # Clamp the bounds within the slider's current min/max
+                    b_min_clamped = max(current_min, min(current_max, b_min))
+                    b_max_clamped = max(current_min, min(current_max, b_max))
+                    
+                    p_lower = (b_min_clamped - current_min) / (current_max - current_min) * 100.0 if current_max > current_min else 0
+                    p_upper = (b_max_clamped - current_min) / (current_max - current_min) * 100.0 if current_max > current_min else 0
+                    
+                    marker_class = f"bound-marker-{p_name.replace('_', '-')}"
+                    
+                    # Combine marker and CSS in ONE st.markdown so the slider is the immediate sibling container
+                    css = f"""
+                    <div class="{marker_class}" style="display:none;"></div>
+                    <style>
+                    /* Use both data-testid and class for maximum compatibility with Streamlit versions */
+                    div[data-testid="stElementContainer"]:has(.{marker_class}) + div[data-testid="stElementContainer"] div[data-baseweb="slider"] > div > div > div:first-child,
+                    div.element-container:has(.{marker_class}) + div.element-container div[data-baseweb="slider"] > div > div > div:first-child {{
+                        background: linear-gradient(to right, 
+                            rgba(255,255,255,0.2) 0%, 
+                            rgba(255,255,255,0.2) {p_lower}%, 
+                            rgba(34,197,94,1.0) {p_lower}%, 
+                            rgba(34,197,94,1.0) {p_upper}%, 
+                            rgba(255,255,255,0.2) {p_upper}%, 
+                            rgba(255,255,255,0.2) 100%
+                        ) !important;
+                    }}
+                    
+                    /* Color the thumb white so it contrasts nicely against the green track */
+                    div[data-testid="stElementContainer"]:has(.{marker_class}) + div[data-testid="stElementContainer"] div[role="slider"],
+                    div.element-container:has(.{marker_class}) + div.element-container div[role="slider"] {{
+                        background-color: white !important;
+                        border-color: white !important;
+                    }}
+                    </style>
+                    """
+                    st.markdown(css, unsafe_allow_html=True)
+                # ---------------------------------------
+
+                # Create Slider (without explicit value= parameter)
+                val = st.slider(
+                    label=display_label,
+                    min_value=current_min,
+                    max_value=current_max,
+                    step=(current_max - current_min) / 100.0,
+                    help=p_desc,
+                    key=f"slider_bounds_{i}"
+                )
+                input_vector[i] = val
+    # --- Right Side: Graphs ---
+    with col_graphs:
+        # All Prediction and Plotting code goes here
+
+        # --- PREDICTION ---
+        input_vector_batch = input_vector.reshape(1, -1)
+        try:
+            predictions = emulator.predict(input_vector_batch)
+        except Exception as e:
+            st.error(f"Emulator Prediction Failed: {e}")
+            st.stop()
+
+        # --- PLOTTING ---
+        st.subheader("Global Signal Prediction", anchor=False)
+        z_primary = st.toggle("Use Redshift (z) as Primary X-Axis", value=False, key="z_primary_bounds")
+
+        # New Model Indices (Verified)
+        xHI_index = 0
+        Tb_index = 1
+        Tk_index = 2
+        Ts_index = 3
+
+        sample_idx = 0
+
+        if len(predictions) > Ts_index:
+            xHI_data = predictions[xHI_index][sample_idx]
+            Tb_data = predictions[Tb_index][sample_idx]
+            Tk_data = predictions[Tk_index][sample_idx]
+            Ts_data = predictions[Ts_index][sample_idx]
+
+            # Gaussian Smoothing (Apply to Tb)
+            Tb_data = gaussian_filter1d(Tb_data, sigma=2)
+
+            # X-Axis Logic
+            if len(z_bins) == len(Tb_data):
+                z_axis = np.array(z_bins)
+            else:
+                z_axis = np.arange(len(Tb_data))
+
+            freq_axis = 1420.4 / (1 + z_axis)
+
+            Tcmb_data = 2.725 * (1 + z_axis)
+
+            # Wrap plots in a container to maintain a consistent height, matching the left column
+            with st.container(height=590):
+                # Reduced figsize height from 16 to 11 to help it fit on smaller screens without too much scrolling
+                fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 14), sharex=False, gridspec_kw={'height_ratios': [1, 1, 1]})
+
+                freq_min = 1420.4 / (1 + 35) # approx 39.45 MHz (z=35)
+                freq_max = 225.0
+
+                if z_primary:
+                    x_data = z_axis
+                    x_min, x_max = 35, (1420.4 / 225.0 - 1)
+                else:
+                    x_data = freq_axis
+                    x_min, x_max = freq_min, freq_max
+
+                # --- OBSERVATIONAL CONSTRAINTS (BOUNDS PAGE ONLY) ---
+                z_hera = np.linspace(6, 10, 100)
+                z_saras = np.linspace(15, 25, 100)
+                z_uvlf = np.linspace(5, 35, 100)
+                
+                if z_primary:
+                    x_hera, x_saras, x_uvlf = z_hera, z_saras, z_uvlf
+                else:
+                    x_hera = 1420.4 / (1 + z_hera)
+                    x_saras = 1420.4 / (1 + z_saras)
+                    x_uvlf = 1420.4 / (1 + z_uvlf)
+
+                # UVLF + CXB (Yellow) - Updated to span z=10 to z=15
+                z_uvlf_cxb = np.linspace(10, 15, 100)
+                x_uvlf_cxb = z_uvlf_cxb if z_primary else 1420.4 / (1 + z_uvlf_cxb)
+                ax1.fill_between(x_uvlf_cxb, -75, 0, color='#f5deb3', alpha=0.25, zorder=1)
+                x_text_uvlf_cxb = 12.5 if z_primary else 1420.4/(1+12.5)
+                ax1.text(x_text_uvlf_cxb, -37.5, 'UVLF + CXB', color='#d5b85a', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+
+                # HERA and tau_CMB (Green Trapezoid)
+                # From (z=6, T=-50) to (z=10, T=-200)
+                y_hera_top = -37.5 * (z_hera - 6) - 50
+                ax1.fill_between(x_hera, -300, y_hera_top, color='#3cb371', alpha=0.3, zorder=1)
+                x_text_hera = 8 if z_primary else 1420.4/(1+8)
+                ax1.text(x_text_hera, -190, r'HERA' + '\n' + r'and' + '\n' + r'$\boldsymbol{\tau_{CMB}}$', color='#2e8b57', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+
+                # SARAS 3 (Purple)
+                y_saras_top = 12 * (z_saras - 15) - 270
+                ax1.fill_between(x_saras, -300, y_saras_top, color='#a09ebb', alpha=0.3, zorder=1)
+                x_text_saras = 20 if z_primary else 1420.4/(1+20)
+                ax1.text(x_text_saras, -230, 'SARAS 3', color='#8882af', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+
+                # UVLF + CRB (Blue/Teal Trapezoid)
+                z_uvlf_crb = np.linspace(15, 25, 100)
+                x_uvlf_crb = z_uvlf_crb if z_primary else 1420.4 / (1 + z_uvlf_crb)
+                # The top boundary is a slanted line starting from (15, -200) to (25, -20)
+                y_uvlf_crb_top = 18 * (z_uvlf_crb - 15) - 200
+                ax1.fill_between(x_uvlf_crb, -300, y_uvlf_crb_top, color='#66cdaa', alpha=0.35, zorder=1) # MediumAquamarine
+                x_text_uvlf_crb = 19 if z_primary else 1420.4/(1+19)
+                ax1.text(x_text_uvlf_crb, -180, 'UVLF\n+\nCRB', color='#008b8b', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+                # ----------------------------------------------------
+
+                # Plot 1: Tb
+                ax1.plot(x_data, Tb_data, color='BlueViolet', linewidth=2.5, label=r'$\rm{Brightness \,\, Temperature} \,\, (\delta T_b)$')
+                ax1.set_ylabel(r"$\delta T_b \,\, [\rm{mK}]$", fontsize=12)
+                ax1.set_xlim(x_max, x_min)
+                if np.min(Tb_data) < -200:
+                     ax1.set_ylim(np.min(Tb_data)*1.1, 20)
+                else:
+                     ax1.set_ylim(-250, 50)
+
+                ax1.axhline(y=0, color='white', linestyle='--', alpha=0.5)
+                ax1.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax1.legend(loc='lower right')
+
+                # Plot 2: xHI
+                ax2.plot(x_data, xHI_data, color='CornflowerBlue', linewidth=2.5, label=r'$\rm{Neutral \,\, Fraction} \,\, (x_{\rm{HI}})$')
+                
+                # --- OBSERVATIONAL CONSTRAINTS xHI (BOUNDS PAGE ONLY) ---
+                # 1. Dark pixels (Blue)
+                dp_z = np.array([5.5, 5.7, 5.9])
+                dp_zerr = np.array([[0.2, 0.2, 0.2], [0.2, 0.2, 0.2]])
+                dp_x = np.array([0.02, 0.04, 0.19])
+                dp_xerr = np.array([[0.02, 0.04, 0.19], [0.10, 0.18, 0.13]])
+                
+                # 2. Galaxy damping wings (Pink)
+                gdw_z = np.array([5.8, 7.0, 8.6, 10.4, 11.49])
+                gdw_zerr = np.array([[0.4, 0.4, 0.9, 0.8, 0.05], [0.5, 0.5, 1.0, 2.0, 0.04]])
+                gdw_x = np.array([0.25, 0.65, 0.95, 0.98, 0.84])
+                gdw_xerr = np.array([[0.20, 0.35, 0.35, 0.20, 0.27], [0.10, 0.27, 0.05, 0.02, 0.14]])
+
+                # 3. Quasar damping wings (Orange/Yellow)
+                qdw_z = np.array([5.90, 5.95, 6.05, 6.15, 6.35, 6.55, 7.29])
+                qdw_zerr = np.array([[0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.27], [0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.27]])
+                qdw_x = np.array([0.06, 0.12, 0.11, 0.20, 0.29, 0.07, 0.49])
+                qdw_xerr = np.array([[0.06, 0.12, 0.11, 0.12, 0.13, 0.07, 0.14], [0.14, 0.16, 0.10, 0.14, 0.14, 0.11, 0.13]])
+                
+                # 4. Galaxy Ly-alpha visibility (Green)
+                gla_z = np.array([6.9, 7.29, 7.6, 10.6])
+                gla_zerr = np.array([[0.5, 0.27, 0.6, 0.0013], [0.5, 0.27, 0.6, 0.0013]])
+                gla_x = np.array([0.59, 0.88, 0.91, 0.14])
+                # Bruton is at 0.14, error up to 0.6 -> +0.46
+                gla_xerr = np.array([[0.15, 0.10, 0.10, 0.14], [0.11, 0.05, 0.05, 0.46]])
+
+                # Transform z to frequency if needed
+                if not z_primary:
+                    def z2f(z_arr, zerr_arr):
+                        f = 1420.4 / (1 + z_arr)
+                        f_low = 1420.4 / (1 + z_arr + zerr_arr[1]) # Upper z error means lower frequency
+                        f_high = 1420.4 / (1 + z_arr - zerr_arr[0]) # Lower z error means higher frequency
+                        return f, np.array([f - f_low, f_high - f])
+                    
+                    dp_z, dp_zerr = z2f(dp_z, dp_zerr)
+                    gdw_z, gdw_zerr = z2f(gdw_z, gdw_zerr)
+                    qdw_z, qdw_zerr = z2f(qdw_z, qdw_zerr)
+                    gla_z, gla_zerr = z2f(gla_z, gla_zerr)
+
+                # Plot exact visual representation points
+                ax2.errorbar(dp_z, dp_x, xerr=dp_zerr, yerr=dp_xerr, fmt='o', color='tab:blue', markersize=4, capsize=3, alpha=0.8, label='Dark pixels', zorder=3)
+                ax2.errorbar(qdw_z, qdw_x, xerr=qdw_zerr, yerr=qdw_xerr, fmt='D', color='goldenrod', markersize=4, capsize=3, alpha=0.8, label='Quasar damping wings', zorder=3)
+                ax2.errorbar(gdw_z, gdw_x, xerr=gdw_zerr, yerr=gdw_xerr, fmt='^', color='palevioletred', markersize=4, capsize=3, alpha=0.8, label='Galaxy damping wings', zorder=3)
+                ax2.errorbar(gla_z, gla_x, xerr=gla_zerr, yerr=gla_xerr, fmt='s', color='mediumseagreen', markersize=4, capsize=3, alpha=0.8, label=r'Galaxy Ly$\alpha$ visibility', zorder=3)
+                # --------------------------------------------------------
+                ax2.set_ylabel(r"$x_{\rm{HI}}$", fontsize=12)
+                ax2.set_ylim(-0.1, 1.1)
+                ax2.set_xlim(x_max, x_min)
+                ax2.grid(True, which='both', linestyle='--', alpha=0.3)
+                ax2.legend(loc='lower right')
+
+                # Plot 3: Thermal History
+                ax3.semilogy(x_data, Tk_data, color='red', linewidth=2, label=r'$T_k \,\, \rm{(Gas \,\, Temp)}$')
+                ax3.semilogy(x_data, Ts_data, color='orange', linewidth=2, label=r'$T_s \,\, \rm{(Spin \,\, Temp)}$')
+                ax3.semilogy(x_data, Tcmb_data, color='white', linestyle='--', linewidth=2, label=r'$T_{\rm{cmb}}$')
+
+                ax3.set_ylabel(r"$\rm{Temperature \,\, [K]}$", fontsize=12)
+                ax3.grid(True, which='major', linestyle='--', alpha=0.3)  # Major ticks only
+                ax3.legend(loc='lower right')
+                ax3.set_xlim(x_max, x_min)
+                ax3.set_ylim(10**-2,10**4)
+                
+                # Conversion functions (Frequency <-> Redshift)
+                def freq_to_z(f): return (1420.4 / f) - 1
+                def z_to_freq(z): return 1420.4 / (1 + z)
+
+                # --- Axes labels and Secondary Axis ---
+                for ax in [ax1, ax2, ax3]:
+                    if z_primary:
+                        ax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12)
+                        secax = ax.secondary_xaxis('top', functions=(z_to_freq, freq_to_z))
+                        ax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
+                        if ax == ax1:
+                            secax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12, labelpad=10)
+                    else:
+                        ax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12)
+                        secax = ax.secondary_xaxis('top', functions=(freq_to_z, z_to_freq))
+                        secax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
+                        if ax == ax1:
+                            secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
+                    
+                    # Style the secondary axis to match the dark theme
+                    secax.tick_params(colors='white')
+                    secax.xaxis.label.set_color('white')
+                    for spine in secax.spines.values():
+                        spine.set_color('white')
+
+                # Dark Theme Styling
+                fig.patch.set_alpha(0.0)
+                for ax in [ax1, ax2, ax3]:
+                    ax.set_facecolor((0, 0, 0, 0.2))
+                    ax.tick_params(colors='white')
+                    ax.xaxis.label.set_color('white')
+                    ax.yaxis.label.set_color('white')
+                    ax.title.set_color('white')
+                    for spine in ax.spines.values():
+                        spine.set_color('white')
+
+                plt.subplots_adjust(hspace=0.45) # Increased hspace to make room for the new top axes
+                st.pyplot(fig)
+        else:
+            st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
+
+
+    st.markdown("---")
+    st.markdown("### Observational Constraints for Astrophysical Parameters")
+
+    with st.expander("UVLF (Ultraviolet Luminosity Function)"):
+        st.markdown(r"""
+Using James Webb Space Telescope and Hubble Space Telescope’s silicon-based receptors for UV light, each observed galaxy’s spectral emission is detected. The neutral Hydrogen in the intergalactic medium (IGM) absorbs radiation of 912 \text{ \AA} and lower, making an absorption in a galaxy’s spectral emission power graph. Using said data, the galaxy’s redshift can be calculated.
+
+Using redshift and the data from JWST and HST, after subtracting known sources of noise (such as sunlight scattered from interstellar dust) each galaxy’s absolute luminosity $M_{\rm{UV}}$ is calculated and added to a histogram of discrete bins (width of $\Delta M$), which display the number density of galaxies as a function of their UV luminosity. Dividing by $\Delta M$ and the optical depth of choice, and fitting, a UVLF is created.
+
+A second, simulated UVLF, obtained by the parameters $\alpha_*$ (which dictates the function’s gradient), $f_*$ (which dictates the amplitude of each simulated point), and the parameter $V_c$ (which can be converted to $M_{\rm{turn}}$ and dictates the intersection with the Luminosity axis). Together these parameters correlate to a value of $M_{\rm{UV}}$. Running different values and comparing to the measured UVLF, the parameters can be restricted to the values shown in figure 4 (with the exception of $M_{\rm{turn}}$ that is only restricted by an upper limit using UVLF).
+""")
+
+    with st.expander("CXB (Cosmic X-ray Background)"):
+        st.markdown(r"""
+Various X-Ray detecting telescopes (such as Chandra), can measure the high energy waves emitted from the accretion of matter onto a black hole / Neutron Star from its companion star (as a typical formation of early redshift galaxies).
+
+Considering the relatively short lifespan of massive stars, the Star Formation Rate ($\rm{SFR}$) is linear to X-ray emission ($L_X$) via the X-ray emission efficiency constant ($f_X$). When total X-Ray emission over time is given by the relation:
+
+$$\text{Total X-ray} \propto \text{SFR} \cdot \left(\frac{L_X}{\text{SFR}}\right)$$
+
+Modeling different values for $f_X$, including MCG’s (early redshift molecular cooling galaxies), and integrating over time (until $z \approx 6$) to achieve the total X-Ray emission, the observed and calculated values are compared to restrict $L_X/\text{SFR}$ (the degeneracy between $\rm{SFR}$ and $L_X/\text{SFR}$ shown in the equation, is solved by applying the data from UVLF). It is important to notice that CXB only yields an upper bound, as the modeled galaxies only contribute a small fraction of the observed X-Ray. A lower bound is acquired using SARAS 3 and HERA’s data.
+
+In the 21vision site, the shown boundary for UVLF + CXB only the restriction for the minima of the absorption.
+""")
+
+    with st.expander("SARAS 3"):
+        st.markdown(r"""
+An observation of the 21 cm line taken by an antenna located in India, which measures power of radio emission as a function of frequency. SARAS 3 scans the sky in a frequency range of 55.3 – 85.3 MHz, which corresponds to the redshifted 1420 MHz line from a redshift between 24.7 – 15.6.
+
+SARAS detects various sources of radio frequency, such as synchrotron emission, and signals from earth, which drown the wanted observable in unwanted noise. As the noise’s power spectrum is relatively smooth in scanned redshifts, it can be subtracted from the measured power function. An absorption in the power function, portrays the existence of neutral Hydrogen in measured era.
+
+Modeling different values of $M_{\rm{turn}}$ in a simulated early universe, yields different values of UV emissions from newborn galaxies, which couples the Hydrogen’s $T_S$ to the cooling $T_{\rm{gas}}$ in different rates. As an effect, different absorptions of radio waves can be modeled and compared to SARAS’s data, to restrict $M_{\rm{turn}}$.
+""")
+
+    with st.expander("HERA (Hydrogen Epoch of Reionization)"):
+        st.markdown(r"""
+An array of antennas, located in South Africa, is measuring the spatial fluctuations of the 21 cm line, crossing signals from multiple receptors to create a picture of incoming wave. Because of different wavelength noises from Earth, best measurements are achieved in redshifts 7.9 and 10.4.
+
+For the corresponding simulation, to model the power spectrum, few astrophysical parameters are inserted, leading by $f_X$: For high values, the universe will be heated more efficiently, causing the power spectrum to be smoother.
+
+For different values of $f_X$, the model and HERA's data are compared to restrict the parameter in relevant redshifts. As CXB's measurement restricts the same parameter with an upper bound, a range for the kinetic temperature of the gas can be calculated, to evaluate a range for the absorption in $\delta T_b$ graph.
+""")
+
+    with st.expander(r"Optic Depth - $\tau_{\rm{CMB}}$"):
+        st.markdown(r"""
+When the reionization starts, free electrons in the IGM cause scattering of CMB photons, in the presence of quadrupole moments. Using Planck satellite, the temperature power spectrum of the CMB is measured, as well as the contrast between sections of the scanned area to calculate the quadrupole moments. Comparing the early universe and the epoch of reionization, the optic depth can be calculated (as a product of integration).
+
+Modeling the universe as dictated by the astrophysical parameters (In this case, $f_{\rm{esc}}$ and $\alpha_{\rm{esc}}$ as the leading factors as they are responsible for the time of reionization), calculating modeled optic depth and comparing to the one measured, restrict $f_{\rm{esc}}$ and $\alpha_{\rm{esc}}$.
+""")
+
+    with st.expander("CRB (Cosmic Radio Background)"):
+        st.markdown(r"""
+The radio radiation emission from a galaxy is proportional to its Star Formation Rate ($
+m{SFR}$). When modeling CMB, another parameter $f_r$ (radio emission efficiency) is added, where the radio emission from stars is integrated with:
+
+$$\text{Total Radio} \propto \text{SFR} \cdot f_r$$
+
+Using instruments like ARCADE2, the total sky radio temperature is measured. Considering the restrictions on $\rm{SFR}$ (using UVLF), the parameter $f_r$ can be restricted by an upper bound. As the measurement of the 21 cm line is made in contrast to the CMB, the restriction is applied to the depth of the absorption signal.
+""")
+
+    st.markdown("### Observational Methods for Constraining Neutral Hydrogen")
+
+    with st.expander("Dark Pixels"):
+        st.markdown(r"""
+When scanning the range of wave spectra emitted from quasars, a receiver will observe a dark spot in the Lyman - Alpha frequency if there was a minimum fraction of neutral Hydrogen in the wave's path. A dark pixel can yield an upper bound to the fraction's value in the line of sight between the detector and the quasar.
+""")
+
+    with st.expander("Quasar Damping Wings"):
+        st.markdown(r"""
+From the uncertainty principle for energy and time, it is deducted that there is a region of probability distributed around the discrete energy transition for the neutral Hydrogen atom. The (known) shape of the distribution dictates the cross section for absorption of the relevant photon by the atom, and by multiplying the cross section and the fraction of Hydrogen, the optic depth of the universe can be calculated.
+
+To restrict the fraction of Hydrogen atoms, the initial amplitude of quasar's radiation is evaluated (using data from relatively nearby quasars measurements), and the optic depth is measured from the received amplitude, from which the fraction of Hydrogen can be isolated and restricted. An important note is that due to the relatively late creation of the first quasars, data from this approach exists until approximately $z \approx 7.9$.
+""")
+
+    with st.expander("Galaxy Damping Wings"):
+        st.markdown(r"""
+A method based on the same principle of the Quasar Damping Wings method, using galaxies as radiation sources. To restrict the fraction of Hydrogen, every observed galaxy is modeled with characteristics such as star formation history, metallicity, total mass, dust and hydrogen fraction, to assess its initial amplitude of radiation. Then by scanning different variables and comparing them to measured flux of radiation, an approximation for Hydrogen fraction is achieved.
+""")
+
+    with st.expander("Galaxy Lyman - Alpha Visibility"):
+        st.markdown(r"""
+Creation of stars is the first step in the process of ionization to recombination, emitting radiation at Lyman - Alpha line (1215 \text{ \AA}), making galaxies a bright source for said wavelength. Having resonance frequency at the corresponding signal, neutral Hydrogen is efficient at absorbing and re - emitting a Lyman Alpha wave, deflecting it from initial trajectory. Mapping a large scale of galaxies at different redshifts, then measuring the flux of Lyman Alpha wavelength emitted from them, yields a visibility fraction (the fraction of galaxies where Lyman Alpha had been detected).
+
+As ionization is not homogenous across the universe but in the shape of bubbles around each galaxy, for large enough bubbles the Lyman Alpha line emitted from stars (which experience cosmological redshift) might stretch out of the absorption frequency range. Modelling different constellations of galaxies with different sized bubbles and arrangements of Neutral Hydrogen and comparing calculated visibility fractions with measured (as well as crossing data with measurements for galaxies and bubbles) grants the Hydrogen fraction as a function of time.
+""")
+
 
 elif selected_page == "Astrophysical Parameters":
     st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; margin-top: 20px;'>Theoretical Framework</div>", unsafe_allow_html=True)
@@ -1018,11 +1480,11 @@ elif selected_page == "Relevant Degeneracies":
 
                 freq_axis_degen = 1420.4 / (1 + z_axis_degen)
                 freq_min = 1420.4 / (1 + 35)
-                freq_max = 1420.4 / (1 + 5)
+                freq_max = 225.0
 
                 if z_primary_degen:
                     x_data_degen = z_axis_degen
-                    x_min_degen, x_max_degen = 35, 5
+                    x_min_degen, x_max_degen = 35, (1420.4 / 225.0 - 1)
                 else:
                     x_data_degen = freq_axis_degen
                     x_min_degen, x_max_degen = freq_min, freq_max
@@ -1049,9 +1511,11 @@ elif selected_page == "Relevant Degeneracies":
                 # Add Top Secondary Axis
                 if z_primary_degen:
                     secax = ax.secondary_xaxis('top', functions=(z_to_freq_degen, freq_to_z_degen))
+                    ax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
                     secax.set_xlabel(r"$\rm{Frequency} \,\, (\rm{MHz})$", fontsize=12, labelpad=10)
                 else:
                     secax = ax.secondary_xaxis('top', functions=(freq_to_z_degen, z_to_freq_degen))
+                    secax.set_xticks([6, 7, 8, 9, 10, 15, 20, 25, 30, 35])
                     secax.set_xlabel(r"$\rm{Redshift} \,\, (z)$", fontsize=12, labelpad=10)
                     
                 secax.tick_params(colors='white')
