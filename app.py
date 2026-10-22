@@ -250,7 +250,7 @@ def load_emulator_system_v5(model_dir, name):
 st.markdown("<div style='text-align: center; color: white; margin-bottom: -20px; font-size: 2.5rem; font-weight: bold;'>The Global 21 cm Signal</div>", unsafe_allow_html=True)
 
 # Updated list based on user request
-nav_options = ["Home", "Bounds", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
+nav_options = ["Home", "Observational Constraints", "Astrophysical Parameters", "Relevant Degeneracies", "About Us & Credits"]
 
 selected_page = st.radio(
     "Navigation", 
@@ -497,7 +497,7 @@ if selected_page == "Home":
         else:
             st.error("Model output structure mismatch. Check if the model is producing all 4 expected outputs.")
 
-elif selected_page == "Bounds":
+elif selected_page == "Observational Constraints":
     
     # Header (Removed the duplicate main title)
     st.markdown("<div style='text-align: center; font-size: 1.5rem; font-weight: 500; margin-top: 10px; margin-bottom: 20px;'>Probing the Cosmic Dawn and Epoch of Reionization</div>", unsafe_allow_html=True)
@@ -694,34 +694,74 @@ elif selected_page == "Bounds":
                     x_saras = 1420.4 / (1 + z_saras)
                     x_uvlf = 1420.4 / (1 + z_uvlf)
 
-                # UVLF + CXB (Yellow) - Updated to span z=10 to z=15
+                # --- DYNAMIC BOUND VIOLATION CHECKS ---
+                sort_idx = np.argsort(z_axis)
+                z_sorted = z_axis[sort_idx]
+                tb_sorted = Tb_data[sort_idx]
+
+                # 1. UVLF + CXB: Turns red ONLY if the minimum point of the Tb graph falls inside [z: 10 to 15, Tb: -75 to 0]
+                min_idx = np.argmin(Tb_data)
+                z_min_point = z_axis[min_idx]
+                tb_min_val = Tb_data[min_idx]
+                cxb_violated = (10.0 <= z_min_point <= 15.0) and (-75.0 <= tb_min_val <= 0.0)
+
+                # 2. HERA and tau_CMB: Turns red if the curve passes through the shape (z in [6, 10], y between -300 and y_top)
+                z_eval_hera = np.linspace(6.0, 10.0, 300)
+                tb_eval_hera = np.interp(z_eval_hera, z_sorted, tb_sorted)
+                y_hera_top_eval = -37.5 * (z_eval_hera - 6.0) - 50.0
+                hera_violated = np.any((tb_eval_hera <= y_hera_top_eval) & (tb_eval_hera >= -300.0))
+
+                # 3. SARAS 3: Turns red if the curve passes through the shape (z in [15, 25], y between -300 and y_top)
+                z_eval_saras = np.linspace(15.0, 25.0, 300)
+                tb_eval_saras = np.interp(z_eval_saras, z_sorted, tb_sorted)
+                y_saras_top_eval = 12.0 * (z_eval_saras - 15.0) - 270.0
+                saras_violated = np.any((tb_eval_saras <= y_saras_top_eval) & (tb_eval_saras >= -300.0))
+
+                # 4. UVLF + CRB: Turns red if the curve passes through the shape (z in [15, 25], y between -300 and y_top)
+                z_eval_crb = np.linspace(15.0, 25.0, 300)
+                tb_eval_crb = np.interp(z_eval_crb, z_sorted, tb_sorted)
+                y_crb_top_eval = 18.0 * (z_eval_crb - 15.0) - 200.0
+                crb_violated = np.any((tb_eval_crb <= y_crb_top_eval) & (tb_eval_crb >= -300.0))
+
+                # --- DRAWING SHAPES WITH DYNAMIC COLORS ---
+                # UVLF + CXB
                 z_uvlf_cxb = np.linspace(10, 15, 100)
                 x_uvlf_cxb = z_uvlf_cxb if z_primary else 1420.4 / (1 + z_uvlf_cxb)
-                ax1.fill_between(x_uvlf_cxb, -75, 0, color='#f5deb3', alpha=0.25, zorder=1)
+                cxb_fill = 'red' if cxb_violated else '#f5deb3'
+                cxb_text = '#ff3333' if cxb_violated else '#d5b85a'
+                cxb_alpha = 0.4 if cxb_violated else 0.25
+                ax1.fill_between(x_uvlf_cxb, -75, 0, color=cxb_fill, alpha=cxb_alpha, zorder=1)
                 x_text_uvlf_cxb = 12.5 if z_primary else 1420.4/(1+12.5)
-                ax1.text(x_text_uvlf_cxb, -37.5, 'UVLF + CXB', color='#d5b85a', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+                ax1.text(x_text_uvlf_cxb, -37.5, 'UVLF + CXB', color=cxb_text, fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
 
-                # HERA and tau_CMB (Green Trapezoid)
-                # From (z=6, T=-50) to (z=10, T=-200)
+                # HERA and tau_CMB (Green Trapezoid -> Red if violated)
                 y_hera_top = -37.5 * (z_hera - 6) - 50
-                ax1.fill_between(x_hera, -300, y_hera_top, color='#3cb371', alpha=0.3, zorder=1)
+                hera_fill = 'red' if hera_violated else '#3cb371'
+                hera_text = '#ff3333' if hera_violated else '#2e8b57'
+                hera_alpha = 0.4 if hera_violated else 0.3
+                ax1.fill_between(x_hera, -300, y_hera_top, color=hera_fill, alpha=hera_alpha, zorder=1)
                 x_text_hera = 8 if z_primary else 1420.4/(1+8)
-                ax1.text(x_text_hera, -190, r'HERA' + '\n' + r'and' + '\n' + r'$\boldsymbol{\tau_{CMB}}$', color='#2e8b57', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+                ax1.text(x_text_hera, -190, r'HERA' + '\n' + r'and' + '\n' + r'$\boldsymbol{\tau_{CMB}}$', color=hera_text, fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
 
-                # SARAS 3 (Purple)
+                # SARAS 3 (Purple -> Red if violated)
                 y_saras_top = 12 * (z_saras - 15) - 270
-                ax1.fill_between(x_saras, -300, y_saras_top, color='#a09ebb', alpha=0.3, zorder=1)
+                saras_fill = 'red' if saras_violated else '#a09ebb'
+                saras_text = '#ff3333' if saras_violated else '#8882af'
+                saras_alpha = 0.4 if saras_violated else 0.3
+                ax1.fill_between(x_saras, -300, y_saras_top, color=saras_fill, alpha=saras_alpha, zorder=1)
                 x_text_saras = 20 if z_primary else 1420.4/(1+20)
-                ax1.text(x_text_saras, -230, 'SARAS 3', color='#8882af', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+                ax1.text(x_text_saras, -230, 'SARAS 3', color=saras_text, fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
 
-                # UVLF + CRB (Blue/Teal Trapezoid)
+                # UVLF + CRB (Blue/Teal Trapezoid -> Red if violated)
                 z_uvlf_crb = np.linspace(15, 25, 100)
                 x_uvlf_crb = z_uvlf_crb if z_primary else 1420.4 / (1 + z_uvlf_crb)
-                # The top boundary is a slanted line starting from (15, -200) to (25, -20)
                 y_uvlf_crb_top = 18 * (z_uvlf_crb - 15) - 200
-                ax1.fill_between(x_uvlf_crb, -300, y_uvlf_crb_top, color='#66cdaa', alpha=0.35, zorder=1) # MediumAquamarine
+                crb_fill = 'red' if crb_violated else '#66cdaa'
+                crb_text = '#ff3333' if crb_violated else '#008b8b'
+                crb_alpha = 0.4 if crb_violated else 0.35
+                ax1.fill_between(x_uvlf_crb, -300, y_uvlf_crb_top, color=crb_fill, alpha=crb_alpha, zorder=1)
                 x_text_uvlf_crb = 19 if z_primary else 1420.4/(1+19)
-                ax1.text(x_text_uvlf_crb, -180, 'UVLF\n+\nCRB', color='#008b8b', fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
+                ax1.text(x_text_uvlf_crb, -180, 'UVLF\n+\nCRB', color=crb_text, fontsize=11, fontweight='bold', ha='center', va='center', zorder=2)
                 # ----------------------------------------------------
 
                 # Plot 1: Tb
