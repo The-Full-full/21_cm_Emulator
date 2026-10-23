@@ -889,7 +889,7 @@ elif selected_page == "Observational Constraints":
 
     with st.expander("UVLF (Ultraviolet Luminosity Function)"):
         st.markdown(r"""
-Using James Webb Space Telescope and Hubble Space Telescope’s silicon-based receptors for UV light, each observed galaxy’s spectral emission is detected. The neutral Hydrogen in the intergalactic medium (IGM) absorbs radiation of 912 \text{ \AA} and lower, making an absorption in a galaxy’s spectral emission power graph. Using said data, the galaxy’s redshift can be calculated.
+Using James Webb Space Telescope and Hubble Space Telescope’s instruments and detectors for UV light, each observed galaxy’s spectral emission is detected. The neutral Hydrogen in the intergalactic medium (IGM) absorbs radiation of 912 \text{ \AA} and lower, making an absorption in a galaxy’s spectral emission power graph. Using said data, the galaxy’s redshift can be calculated.
 
 Using redshift and the data from JWST and HST, after subtracting known sources of noise (such as sunlight scattered from interstellar dust) each galaxy’s absolute luminosity $M_{\rm{UV}}$ is calculated and added to a histogram of discrete bins (width of $\Delta M$), which display the number density of galaxies as a function of their UV luminosity. Dividing by $\Delta M$ and the optical depth of choice, and fitting, a UVLF is created.
 
